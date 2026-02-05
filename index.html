@@ -953,49 +953,64 @@
         }
 
         function Sidebar({ currentPage, setCurrentPage, currentUser, onLogout }) {
-            const menuItems = [
-                { id: 'dashboard', icon: '📊', label: 'Dashboard' },
-                { id: 'forklifts', icon: '🏗️', label: 'Forklift Fleet' },
-                { id: 'operators', icon: '👷', label: 'Operators' },
-                { id: 'maintenance', icon: '🔧', label: 'Maintenance' },
-                { id: 'checklists', icon: '✅', label: 'Daily Checklists' },
-                { id: 'reports', icon: '📈', label: 'Reports' },
-                { id: 'settings', icon: '⚙️', label: 'Settings' }
-            ];
+        const menuItems = [
+            { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+            { id: 'forklifts', icon: '🏗️', label: 'Forklift Fleet' },
+            { id: 'operators', icon: '👷', label: 'Operators' },
+            { id: 'maintenance', icon: '🔧', label: 'Maintenance' },
+            { id: 'checklists', icon: '✅', label: 'Daily Checklists' },
+            { id: 'reports', icon: '📈', label: 'Reports' },
+            { id: 'settings', icon: '⚙️', label: 'Settings' }
+        ];
 
-            return (
-                <div className="sidebar">
-                    <div className="sidebar-header">
-                        <img src={IMAGES.forkliftIcon} alt="Icon" className="sidebar-icon" />
-                        <div className="sidebar-logo">Forklift Manager</div>
-                        <img src={IMAGES.samsungLogo} alt="Logo" className="sidebar-header-logo" />
-                    </div>
-                    
-                    <div className="sidebar-user">
-                        <div className="user-avatar">{currentUser?.charAt(0).toUpperCase()}</div>
-                        <div style={{overflow: 'hidden'}}>
-                            <div style={{fontWeight: 600, fontSize: '14px'}}>{currentUser}</div>
-                            <div style={{fontSize: '11px', opacity: 0.7}}>{sessionStorage.getItem('userRole')}</div>
-                        </div>
-                    </div>
-                    
-                    <div className="nav-menu">
-                        {menuItems.map(item => (
-                            <div
-                                key={item.id}
-                                className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
-                                onClick={() => setCurrentPage(item.id)}
-                            >
-                                <span className="nav-icon">{item.icon}</span>
-                                {item.label}
-                            </div>
-                        ))}
-                    </div>
-                    
-                    <button className="logout-btn" onClick={onLogout}>🚪 Logout</button>
+        return (
+            <div className="sidebar">
+
+            <div className="sidebar-header">
+                <img src={IMAGES.forkliftIcon} alt="Icon" className="sidebar-icon" />
+
+                <div className="sidebar-logo" style={{ fontWeight: 400 }}>
+                Forklift Manager
                 </div>
-            );
+
+                <img src={IMAGES.samsungLogo} alt="Logo" className="sidebar-header-logo" />
+            </div>
+
+            <div className="sidebar-user">
+                <div className="user-avatar">
+                {currentUser?.charAt(0).toUpperCase()}
+                </div>
+
+                <div style={{ overflow: 'hidden' }}>
+                <div style={{ fontWeight: 600, fontSize: '14px' }}>
+                    {currentUser}
+                </div>
+                <div style={{ fontSize: '11px', opacity: 0.7 }}>
+                    {sessionStorage.getItem('userRole')}
+                </div>
+                </div>
+            </div>
+
+            <div className="nav-menu">
+                {menuItems.map((item) => (
+                <div
+                    key={item.id}
+                    className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
+                    onClick={() => setCurrentPage(item.id)}
+                >
+                    <span className="nav-icon">{item.icon}</span>
+                    {item.label}
+                </div>
+                ))}
+            </div>
+
+            <button className="logout-btn" onClick={onLogout}>
+                🚪 Logout
+            </button>
+            </div>
+        );
         }
+
 
         // Dashboard - NO CHARTS, Activity & Alerts instead
         function Dashboard() {
