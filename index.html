@@ -718,6 +718,10 @@ class DataManager {
                 localStorage.setItem(`forklift_${key}`, JSON.stringify(this.data[key]));
             }
 
+            getBankstownOperators() {
+                return (this.data.operators || []).filter(o => (o.group || '').toLowerCase().includes('bankstown'));
+            }
+
             addAuditLog(action, details) {
                 const log = {
                     id: Date.now(),
@@ -913,7 +917,7 @@ class DataManager {
                         break;
                     case 'operators':
                         headers = [['Name', 'License No', 'Expiry', 'Status']];
-                        tableData = this.data.operators.map(o => [o.name, o.licenseNo, o.licenseExpiry, o.status]);
+                        tableData = this.getBankstownOperators().map(o => [o.name, o.licenseNo, o.licenseExpiry, o.status]);
                         break;
                 }
                 
@@ -1933,8 +1937,8 @@ class DataManager {
                 totalForklifts: dataManager.data.forklifts.length,
                 activeForklifts: dataManager.data.forklifts.filter(f => f.status === 'Active').length,
                 maintenanceCount: dataManager.data.maintenance.filter(m => m.status !== 'Completed').length,
-                totalOperators: dataManager.data.operators.length,
-                activeOperators: dataManager.data.operators.filter(o => o.status === 'Active').length,
+                totalOperators: dataManager.getBankstownOperators().length,
+                activeOperators: dataManager.getBankstownOperators().filter(o => o.status === 'Active').length,
                 totalChecklists: dataManager.data.checklists.length
             };
 
@@ -1944,7 +1948,7 @@ class DataManager {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             
-            const expiredLicenses = dataManager.data.operators.filter(o => {
+            const expiredLicenses = dataManager.getBankstownOperators().filter(o => {
                 if (!o.licenseExpiry) return false;
                 const parts = o.licenseExpiry.split('-');
                 if (parts.length !== 3) return false;
@@ -1954,7 +1958,7 @@ class DataManager {
                 return diffDays < 0;
             });
             
-            const expiringLicenses = dataManager.data.operators.filter(o => {
+            const expiringLicenses = dataManager.getBankstownOperators().filter(o => {
                 if (!o.licenseExpiry) return false;
                 const parts = o.licenseExpiry.split('-');
                 if (parts.length !== 3) return false;
@@ -2085,7 +2089,7 @@ class DataManager {
 
         // OPERATORS - Full implementation with Edit/Delete/Add/Photo Upload
         function Operators() {
-            const [operators, setOperators] = useState(dataManager.data.operators);
+            const [operators, setOperators] = useState(dataManager.getBankstownOperators());
             const [showModal, setShowModal] = useState(false);
             const [editingOperator, setEditingOperator] = useState(null);
             const [searchTerm, setSearchTerm] = useState('');
@@ -2189,7 +2193,7 @@ class DataManager {
                     dataManager.data.operators = newOperators;
                     dataManager.saveData('operators');
                     dataManager.addAuditLog('Import Operators', `Imported ${newOperators.length} operators from Excel`);
-                    setOperators([...dataManager.data.operators]);
+                    setOperators([...dataManager.getBankstownOperators()]);
                     alert(`✅ Imported ${newOperators.length} operators.`);
                 } catch (err) {
                     console.error(err);
@@ -2253,7 +2257,7 @@ class DataManager {
             const handleDelete = (id) => {
                 if (confirm('Are you sure you want to delete this operator?')) {
                     dataManager.deleteOperator(id);
-                    setOperators([...dataManager.data.operators]);
+                    setOperators([...dataManager.getBankstownOperators()]);
                 }
             };
 
@@ -2263,7 +2267,7 @@ class DataManager {
                 } else {
                     dataManager.addOperator(operatorData);
                 }
-                setOperators([...dataManager.data.operators]);
+                setOperators([...dataManager.getBankstownOperators()]);
                 setShowModal(false);
             };
 
@@ -3443,7 +3447,7 @@ class DataManager {
             const forklifts = dataManager.data.forklifts.map(f => f.unitNo);
             
             // Get operator list
-            const operators = [...new Set(dataManager.data.operators.map(o => o.name))].sort();
+            const operators = [...new Set(dataManager.getBankstownOperators().map(o => o.name))].sort();
 
             return (
                 <div className="modal-overlay" onClick={onClose}>
@@ -3995,10 +3999,9 @@ class DataManager {
             // --- Compliance calculation helpers ---
             const getOperatorSet = () => {
                 const set = new Set();
-                (dataManager.data.operators || []).forEach(o => {
+                dataManager.getBankstownOperators().forEach(o => {
                     const nm = normalizeName(o.name || '');
-                    const grp = (o.group || '').toLowerCase();
-                    if (nm && grp.includes('bankstown')) set.add(nm);
+                    if (nm) set.add(nm);
                 });
                 return set;
             };
@@ -4062,7 +4065,7 @@ class DataManager {
 
             const operatorNameMap = (() => {
                 const map = new Map();
-                (dataManager.data.operators || []).forEach(o => {
+                dataManager.getBankstownOperators().forEach(o => {
                     const raw = (o.name || '').toString().trim();
                     const key = normalizeName(raw);
                     if (key && !map.has(key)) map.set(key, raw);
@@ -4210,7 +4213,7 @@ return (
                         {listView && (() => {
                             // Build rows with operator details
                             const operatorMap = new Map();
-                            (dataManager.data.operators || []).forEach(o => {
+                            dataManager.getBankstownOperators().forEach(o => {
                                 operatorMap.set(normalizeName(o.name || ''), o);
                             });
 
