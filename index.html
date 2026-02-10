@@ -1773,7 +1773,6 @@ class DataManager {
                         {currentPage === 'maintenance' && <Maintenance />}
                         {currentPage === 'checklists' && <Checklists />}
                         {currentPage === 'compliance' && <Compliance />}
-                        {currentPage === 'reports' && <Reports />}
                         {currentPage === 'settings' && <Settings />}
                     </div>
                 </div>
@@ -1893,7 +1892,6 @@ class DataManager {
                 { id: 'maintenance', icon: '🔧', label: 'Maintenance' },
                 { id: 'checklists', icon: '✅', label: 'Daily Checklists' },
                 { id: 'compliance', icon: '🧾', label: 'Compliance' },
-                { id: 'reports', icon: '📈', label: 'Reports' },
                 { id: 'settings', icon: '⚙️', label: 'Settings' }
             ];
 
@@ -4328,6 +4326,424 @@ return (
                                 </div>
                             );
                         })()}
+                    </div>
+                </div>
+            );
+        }
+
+        function Settings() {
+            const [activeTab, setActiveTab] = useState('user-management');
+            const [users, setUsers] = useState(() => dataManager.data.users || []);
+            const [editingUser, setEditingUser] = useState(null);
+            const [showUserModal, setShowUserModal] = useState(false);
+            const [auditLogs, setAuditLogs] = useState(() => dataManager.data.auditLog || []);
+            const [confirmReset, setConfirmReset] = useState(false);
+            const [importMsg, setImportMsg] = useState('');
+            const [exportMsg, setExportMsg] = useState('');
+            const fileInputRef = useRef(null);
+
+            const currentRole = sessionStorage.getItem('userRole') || '';
+            const currentUsername = sessionStorage.getItem('currentUser') || '';
+            const isAdmin = currentRole === 'Admin';
+
+            const tabs = [
+                { id: 'user-management', icon: '👥', label: 'User Management' },
+                { id: 'data-management', icon: '💾', label: 'Data Management' },
+                { id: 'audit-log', icon: '📋', label: 'Audit Log' },
+                { id: 'system-info', icon: 'ℹ️', label: 'System Info' }
+            ];
+
+            // ---- User Management ----
+            const handleSaveUser = (userData) => {
+                if (editingUser) {
+                    const idx = dataManager.data.users.findIndex(u => u.id === editingUser.id);
+                    if (idx !== -1) {
+                        dataManager.data.users[idx] = { ...dataManager.data.users[idx], ...userData };
+                        dataManager.saveData('users');
+                        dataManager.addAuditLog('Update User', `Updated user "${userData.username}"`);
+                    }
+                } else {
+                    const newUser = { ...userData, id: Date.now() };
+                    dataManager.data.users.push(newUser);
+                    dataManager.saveData('users');
+                    dataManager.addAuditLog('Add User', `Added user "${userData.username}"`);
+                }
+                setUsers([...dataManager.data.users]);
+                setShowUserModal(false);
+                setEditingUser(null);
+            };
+
+            const handleDeleteUser = (userId) => {
+                const user = dataManager.data.users.find(u => u.id === userId);
+                if (user && user.username === currentUsername) {
+                    alert('You cannot delete your own account.');
+                    return;
+                }
+                if (!confirm(`Delete user "${user?.username}"?`)) return;
+                dataManager.data.users = dataManager.data.users.filter(u => u.id !== userId);
+                dataManager.saveData('users');
+                dataManager.addAuditLog('Delete User', `Deleted user "${user?.username}"`);
+                setUsers([...dataManager.data.users]);
+            };
+
+            // ---- Data Management ----
+            const handleExportAll = () => {
+                try {
+                    const allData = {};
+                    const keys = ['forklifts','operators','maintenance','checklists','incidents','auditLog','users'];
+                    keys.forEach(k => { allData[k] = dataManager.data[k] || []; });
+                    // Also grab attendance records
+                    try { allData.attendance = JSON.parse(localStorage.getItem('forklift_attendance_records') || '[]'); } catch { allData.attendance = []; }
+                    const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `forklift_backup_${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    setExportMsg('✅ Backup exported successfully.');
+                    dataManager.addAuditLog('Export Data', 'Full system backup exported');
+                    setTimeout(() => setExportMsg(''), 3000);
+                } catch (err) {
+                    setExportMsg('❌ Export failed: ' + err.message);
+                }
+            };
+
+            const handleImportAll = (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const imported = JSON.parse(ev.target.result);
+                        const keys = ['forklifts','operators','maintenance','checklists','incidents','auditLog','users'];
+                        keys.forEach(k => {
+                            if (Array.isArray(imported[k])) {
+                                dataManager.data[k] = imported[k];
+                                dataManager.saveData(k);
+                            }
+                        });
+                        if (Array.isArray(imported.attendance)) {
+                            localStorage.setItem('forklift_attendance_records', JSON.stringify(imported.attendance));
+                        }
+                        setUsers([...dataManager.data.users]);
+                        setAuditLogs([...dataManager.data.auditLog]);
+                        dataManager.addAuditLog('Import Data', 'System data restored from backup');
+                        setImportMsg('✅ Data imported successfully. Refresh the page to see all changes.');
+                        setTimeout(() => setImportMsg(''), 5000);
+                    } catch (err) {
+                        setImportMsg('❌ Import failed: ' + err.message);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            };
+
+            const handleResetAll = () => {
+                if (!confirmReset) { setConfirmReset(true); return; }
+                const lsKeys = Object.keys(localStorage).filter(k => k.startsWith('forklift_'));
+                lsKeys.forEach(k => localStorage.removeItem(k));
+                dataManager.initializeData();
+                setUsers([...dataManager.data.users]);
+                setAuditLogs([]);
+                setConfirmReset(false);
+                dataManager.addAuditLog('Reset Data', 'All system data has been reset to defaults');
+                alert('All data has been reset. The page will reload.');
+                window.location.reload();
+            };
+
+            // ---- Audit Log ----
+            const handleClearAudit = () => {
+                if (!confirm('Clear all audit log entries?')) return;
+                dataManager.data.auditLog = [];
+                dataManager.saveData('auditLog');
+                setAuditLogs([]);
+            };
+
+            const refreshAudit = () => setAuditLogs([...dataManager.data.auditLog]);
+
+            // ---- Stats ----
+            const storageUsed = (() => {
+                let total = 0;
+                for (let k in localStorage) {
+                    if (localStorage.hasOwnProperty(k) && k.startsWith('forklift_')) {
+                        total += (localStorage.getItem(k) || '').length;
+                    }
+                }
+                return (total / 1024).toFixed(1);
+            })();
+
+            return (
+                <div style={{padding: '20px'}}>
+                    <h2 style={{margin: '0 0 20px', color: '#2c3e50', fontSize: '22px'}}>⚙️ Settings</h2>
+
+                    {/* Tabs */}
+                    <div style={{display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap'}}>
+                        {tabs.map(t => (
+                            <button key={t.id} onClick={() => { setActiveTab(t.id); if (t.id === 'audit-log') refreshAudit(); }}
+                                style={{
+                                    padding: '10px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                                    fontWeight: 600, fontSize: '13px',
+                                    background: activeTab === t.id ? '#3498db' : '#ecf0f1',
+                                    color: activeTab === t.id ? '#fff' : '#2c3e50',
+                                    transition: 'all 0.2s'
+                                }}>
+                                {t.icon} {t.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* ===== User Management Tab ===== */}
+                    {activeTab === 'user-management' && (
+                        <div style={{background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)'}}>
+                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
+                                <h3 style={{margin: 0, fontSize: '17px'}}>👥 User Accounts</h3>
+                                {isAdmin && (
+                                    <button onClick={() => { setEditingUser(null); setShowUserModal(true); }}
+                                        style={{padding: '8px 16px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px'}}>
+                                        + Add User
+                                    </button>
+                                )}
+                            </div>
+                            {!isAdmin && <div style={{padding: '12px', background: '#fff3cd', borderRadius: '6px', marginBottom: '12px', fontSize: '13px'}}>⚠️ Only Admin users can add, edit, or delete accounts.</div>}
+                            <div style={{overflowX: 'auto'}}>
+                                <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '14px'}}>
+                                    <thead>
+                                        <tr style={{background: '#f8f9fa'}}>
+                                            <th style={{padding: '10px 12px', textAlign: 'left', borderBottom: '2px solid #dee2e6'}}>Username</th>
+                                            <th style={{padding: '10px 12px', textAlign: 'left', borderBottom: '2px solid #dee2e6'}}>Name</th>
+                                            <th style={{padding: '10px 12px', textAlign: 'left', borderBottom: '2px solid #dee2e6'}}>Role</th>
+                                            {isAdmin && <th style={{padding: '10px 12px', textAlign: 'center', borderBottom: '2px solid #dee2e6'}}>Actions</th>}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {users.map(u => (
+                                            <tr key={u.id} style={{borderBottom: '1px solid #eee'}}>
+                                                <td style={{padding: '10px 12px', fontWeight: 600}}>{u.username}</td>
+                                                <td style={{padding: '10px 12px'}}>{u.name}</td>
+                                                <td style={{padding: '10px 12px'}}>
+                                                    <span style={{
+                                                        padding: '3px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+                                                        background: u.role === 'Admin' ? '#e8f5e9' : u.role === 'Manager' ? '#e3f2fd' : '#f5f5f5',
+                                                        color: u.role === 'Admin' ? '#2e7d32' : u.role === 'Manager' ? '#1565c0' : '#616161'
+                                                    }}>{u.role}</span>
+                                                </td>
+                                                {isAdmin && (
+                                                    <td style={{padding: '10px 12px', textAlign: 'center'}}>
+                                                        <button onClick={() => { setEditingUser(u); setShowUserModal(true); }}
+                                                            style={{padding: '4px 10px', marginRight: '6px', background: '#3498db', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px'}}>Edit</button>
+                                                        <button onClick={() => handleDeleteUser(u.id)}
+                                                            style={{padding: '4px 10px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px'}}>Delete</button>
+                                                    </td>
+                                                )}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {showUserModal && (
+                                <UserModal user={editingUser} onSave={handleSaveUser} onClose={() => { setShowUserModal(false); setEditingUser(null); }} />
+                            )}
+                        </div>
+                    )}
+
+                    {/* ===== Data Management Tab ===== */}
+                    {activeTab === 'data-management' && (
+                        <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                            {/* Export */}
+                            <div style={{background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)'}}>
+                                <h3 style={{margin: '0 0 8px', fontSize: '17px'}}>📤 Export Backup</h3>
+                                <p style={{color: '#666', fontSize: '13px', margin: '0 0 14px'}}>Download a full JSON backup of all system data (forklifts, operators, maintenance, checklists, attendance, users, audit log).</p>
+                                <button onClick={handleExportAll}
+                                    style={{padding: '10px 20px', background: '#3498db', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '14px'}}>
+                                    💾 Export All Data
+                                </button>
+                                {exportMsg && <div style={{marginTop: '10px', fontSize: '13px'}}>{exportMsg}</div>}
+                            </div>
+                            {/* Import */}
+                            <div style={{background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)'}}>
+                                <h3 style={{margin: '0 0 8px', fontSize: '17px'}}>📥 Import / Restore</h3>
+                                <p style={{color: '#666', fontSize: '13px', margin: '0 0 14px'}}>Restore data from a previously exported JSON backup file. This will overwrite current data.</p>
+                                {!isAdmin && <div style={{padding: '12px', background: '#fff3cd', borderRadius: '6px', marginBottom: '12px', fontSize: '13px'}}>⚠️ Only Admin users can import data.</div>}
+                                <button onClick={() => isAdmin ? fileInputRef.current?.click() : alert('Admin access required')}
+                                    style={{padding: '10px 20px', background: isAdmin ? '#27ae60' : '#bdc3c7', color: '#fff', border: 'none', borderRadius: '6px', cursor: isAdmin ? 'pointer' : 'not-allowed', fontWeight: 600, fontSize: '14px'}}>
+                                    📂 Select Backup File
+                                </button>
+                                <input ref={fileInputRef} type="file" accept=".json" onChange={handleImportAll} style={{display: 'none'}} />
+                                {importMsg && <div style={{marginTop: '10px', fontSize: '13px'}}>{importMsg}</div>}
+                            </div>
+                            {/* Reset */}
+                            <div style={{background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1px solid #f5c6cb'}}>
+                                <h3 style={{margin: '0 0 8px', fontSize: '17px', color: '#e74c3c'}}>🗑️ Reset All Data</h3>
+                                <p style={{color: '#666', fontSize: '13px', margin: '0 0 14px'}}>Permanently delete all data and reset the system to factory defaults. This action cannot be undone.</p>
+                                {!isAdmin && <div style={{padding: '12px', background: '#fff3cd', borderRadius: '6px', marginBottom: '12px', fontSize: '13px'}}>⚠️ Only Admin users can reset data.</div>}
+                                {isAdmin ? (
+                                    confirmReset ? (
+                                        <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                                            <span style={{fontSize: '13px', color: '#e74c3c', fontWeight: 600}}>Are you sure? This cannot be undone!</span>
+                                            <button onClick={handleResetAll}
+                                                style={{padding: '8px 16px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px'}}>
+                                                Yes, Reset Everything
+                                            </button>
+                                            <button onClick={() => setConfirmReset(false)}
+                                                style={{padding: '8px 16px', background: '#95a5a6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '13px'}}>
+                                                Cancel
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => setConfirmReset(true)}
+                                            style={{padding: '10px 20px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600, fontSize: '14px'}}>
+                                            ⚠️ Reset All Data
+                                        </button>
+                                    )
+                                ) : null}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ===== Audit Log Tab ===== */}
+                    {activeTab === 'audit-log' && (
+                        <div style={{background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)'}}>
+                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
+                                <h3 style={{margin: 0, fontSize: '17px'}}>📋 Audit Log <span style={{fontSize: '13px', color: '#999', fontWeight: 400}}>({auditLogs.length} entries)</span></h3>
+                                <div style={{display: 'flex', gap: '8px'}}>
+                                    <button onClick={refreshAudit} style={{padding: '6px 14px', background: '#3498db', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600}}>🔄 Refresh</button>
+                                    {isAdmin && <button onClick={handleClearAudit} style={{padding: '6px 14px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600}}>Clear Log</button>}
+                                </div>
+                            </div>
+                            <div style={{maxHeight: '500px', overflowY: 'auto'}}>
+                                {auditLogs.length === 0 ? (
+                                    <div style={{textAlign: 'center', padding: '40px', color: '#999'}}>No audit log entries.</div>
+                                ) : (
+                                    <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '13px'}}>
+                                        <thead>
+                                            <tr style={{background: '#f8f9fa', position: 'sticky', top: 0}}>
+                                                <th style={{padding: '8px 10px', textAlign: 'left', borderBottom: '2px solid #dee2e6'}}>Timestamp</th>
+                                                <th style={{padding: '8px 10px', textAlign: 'left', borderBottom: '2px solid #dee2e6'}}>User</th>
+                                                <th style={{padding: '8px 10px', textAlign: 'left', borderBottom: '2px solid #dee2e6'}}>Action</th>
+                                                <th style={{padding: '8px 10px', textAlign: 'left', borderBottom: '2px solid #dee2e6'}}>Details</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {auditLogs.map((log, i) => (
+                                                <tr key={log.id || i} style={{borderBottom: '1px solid #eee'}}>
+                                                    <td style={{padding: '8px 10px', whiteSpace: 'nowrap', color: '#666'}}>{log.timestamp}</td>
+                                                    <td style={{padding: '8px 10px', fontWeight: 600}}>{log.user}</td>
+                                                    <td style={{padding: '8px 10px'}}>
+                                                        <span style={{padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 600,
+                                                            background: log.action?.includes('Delete') || log.action?.includes('Reset') ? '#fde8e8' :
+                                                                        log.action?.includes('Add') || log.action?.includes('Import') ? '#e8f5e9' : '#e3f2fd',
+                                                            color: log.action?.includes('Delete') || log.action?.includes('Reset') ? '#c62828' :
+                                                                   log.action?.includes('Add') || log.action?.includes('Import') ? '#2e7d32' : '#1565c0'
+                                                        }}>{log.action}</span>
+                                                    </td>
+                                                    <td style={{padding: '8px 10px', color: '#555', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{log.details}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ===== System Info Tab ===== */}
+                    {activeTab === 'system-info' && (
+                        <div style={{display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                            <div style={{background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)'}}>
+                                <h3 style={{margin: '0 0 16px', fontSize: '17px'}}>ℹ️ System Information</h3>
+                                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px'}}>
+                                    {[
+                                        { label: 'Application', value: 'Forklift Management System' },
+                                        { label: 'Version', value: 'V6' },
+                                        { label: 'Organisation', value: 'Samsung SDS Cello' },
+                                        { label: 'Site', value: 'Bankstown' },
+                                        { label: 'Current User', value: currentUsername },
+                                        { label: 'Role', value: currentRole },
+                                        { label: 'LocalStorage Used', value: `${storageUsed} KB` },
+                                    ].map((item, i) => (
+                                        <div key={i} style={{padding: '14px', background: '#f8f9fa', borderRadius: '8px'}}>
+                                            <div style={{fontSize: '11px', color: '#999', textTransform: 'uppercase', fontWeight: 600, marginBottom: '4px'}}>{item.label}</div>
+                                            <div style={{fontSize: '15px', fontWeight: 600, color: '#2c3e50'}}>{item.value}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div style={{background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)'}}>
+                                <h3 style={{margin: '0 0 12px', fontSize: '17px'}}>📊 Data Summary</h3>
+                                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '12px'}}>
+                                    {[
+                                        { label: 'Forklifts', count: dataManager.data.forklifts.length, icon: '🏗️' },
+                                        { label: 'Operators', count: dataManager.data.operators.length, icon: '👷' },
+                                        { label: 'Maintenance', count: dataManager.data.maintenance.length, icon: '🔧' },
+                                        { label: 'Checklists', count: dataManager.data.checklists.length, icon: '✅' },
+                                        { label: 'Users', count: dataManager.data.users.length, icon: '👥' },
+                                        { label: 'Audit Entries', count: dataManager.data.auditLog.length, icon: '📋' },
+                                    ].map((item, i) => (
+                                        <div key={i} style={{padding: '16px', background: 'linear-gradient(135deg, #667eea22, #764ba222)', borderRadius: '10px', textAlign: 'center'}}>
+                                            <div style={{fontSize: '24px', marginBottom: '4px'}}>{item.icon}</div>
+                                            <div style={{fontSize: '22px', fontWeight: 700, color: '#2c3e50'}}>{item.count}</div>
+                                            <div style={{fontSize: '12px', color: '#666'}}>{item.label}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function UserModal({ user, onSave, onClose }) {
+            const [username, setUsername] = useState(user?.username || '');
+            const [name, setName] = useState(user?.name || '');
+            const [password, setPassword] = useState('');
+            const [role, setRole] = useState(user?.role || 'User');
+
+            const handleSubmit = () => {
+                if (!username.trim() || !name.trim()) { alert('Username and Name are required.'); return; }
+                if (!user && !password.trim()) { alert('Password is required for new users.'); return; }
+                const data = { username: username.trim(), name: name.trim(), role };
+                if (password.trim()) data.password = password.trim();
+                else if (user) data.password = user.password;
+                onSave(data);
+            };
+
+            return (
+                <div style={{position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000}}>
+                    <div style={{background: '#fff', borderRadius: '12px', padding: '28px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)'}}>
+                        <h3 style={{margin: '0 0 20px', fontSize: '18px'}}>{user ? '✏️ Edit User' : '➕ Add New User'}</h3>
+                        <div style={{display: 'flex', flexDirection: 'column', gap: '14px'}}>
+                            <div>
+                                <label style={{display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600}}>Username</label>
+                                <input value={username} onChange={e => setUsername(e.target.value)}
+                                    style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box'}} />
+                            </div>
+                            <div>
+                                <label style={{display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600}}>Full Name</label>
+                                <input value={name} onChange={e => setName(e.target.value)}
+                                    style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box'}} />
+                            </div>
+                            <div>
+                                <label style={{display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600}}>Password {user && <span style={{fontWeight: 400, color: '#999'}}>(leave blank to keep current)</span>}</label>
+                                <input type="password" value={password} onChange={e => setPassword(e.target.value)}
+                                    style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box'}} />
+                            </div>
+                            <div>
+                                <label style={{display: 'block', marginBottom: '4px', fontSize: '13px', fontWeight: 600}}>Role</label>
+                                <select value={role} onChange={e => setRole(e.target.value)}
+                                    style={{width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '14px', boxSizing: 'border-box'}}>
+                                    <option value="Admin">Admin</option>
+                                    <option value="Manager">Manager</option>
+                                    <option value="User">User</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style={{display: 'flex', gap: '10px', marginTop: '22px', justifyContent: 'flex-end'}}>
+                            <button onClick={onClose} style={{padding: '10px 20px', background: '#95a5a6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600}}>Cancel</button>
+                            <button onClick={handleSubmit} style={{padding: '10px 20px', background: '#3498db', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600}}>Save</button>
+                        </div>
                     </div>
                 </div>
             );
