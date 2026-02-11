@@ -3180,10 +3180,17 @@ class DataManager {
             };
 
 
-            const filteredChecklists = checklists.filter(c =>
-                (c.unitNo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (c.operator || '').toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            const filteredChecklists = checklists
+                .filter(c =>
+                    (c.unitNo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    (c.operator || '').toLowerCase().includes(searchTerm.toLowerCase())
+                )
+                .sort((a, b) => {
+                    // Sort by date descending (newest first)
+                    const dateA = new Date(a.date || '');
+                    const dateB = new Date(b.date || '');
+                    return dateB - dateA;
+                });
 
             const handleDoubleClick = (checklist) => {
                 setViewingChecklist(checklist);
@@ -3226,11 +3233,21 @@ class DataManager {
                                 name: operatorName,
                                 licenseNo: 'TBA',
                                 department: checklistData.department || '',
-                                validFrom: new Date().toISOString().split('T')[0],
+                                validFrom: '',
                                 licenseExpiry: '',
-                                classes: 'LO',
-                                hireDate: new Date().toISOString().split('T')[0],
-                                status: 'Active'
+                                classes: 'LF',
+                                hireDate: '',
+                                status: '',
+                                assessmentDone: '',
+                                assessmentDate: '',
+                                assessorName: '',
+                                terminationDate: '',
+                                terminationReason: '',
+                                terminationDetail: '',
+                                warning1: '',
+                                warning2: '',
+                                warning3: '',
+                                licensePhoto: ''
                             };
                             
                             dataManager.addOperator(newOperator);
@@ -3284,35 +3301,35 @@ class DataManager {
                             <table className="data-table">
                                 <thead>
                                     <tr>
-                                        <th>Checklist No</th>
                                         <th>Date</th>
                                         <th>Unit</th>
                                         <th>Operator</th>
                                         <th>Department</th>
                                         <th>Shift</th>
                                         <th>Result</th>
+                                        <th>Required Action</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filteredChecklists.map(c => (
                                         <tr key={c.id} onDoubleClick={() => handleDoubleClick(c)} style={{cursor: 'pointer'}} title="Double-click to view full details">
-                                            <td><strong>{c.checklistNo}</strong></td>
                                             <td>{formatDateDMY(c.date)}</td>
                                             <td>{c.unitNo}</td>
                                             <td>{c.operator}</td>
                                             <td>{c.department || '-'}</td>
                                             <td>{c.shift}</td>
-                                        <td><span className={`status-badge status-${(c.result || '').toLowerCase()}`}>{c.result}</span></td>
-                                        <td>
-                                            <div className="action-icons">
-                                                <button className="icon-btn edit" onClick={(e) => { e.stopPropagation(); handleEdit(c); }} title="Edit">✏️</button>
-                                                <button className="icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }} title="Delete">🗑️</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
+                                            <td><span className={`status-badge status-${(c.result || '').toLowerCase()}`}>{c.result}</span></td>
+                                            <td>{c.repairAction || '-'}</td>
+                                            <td>
+                                                <div className="action-icons">
+                                                    <button className="icon-btn edit" onClick={(e) => { e.stopPropagation(); handleEdit(c); }} title="Edit">✏️</button>
+                                                    <button className="icon-btn delete" onClick={(e) => { e.stopPropagation(); handleDelete(c.id); }} title="Delete">🗑️</button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
                         </table>
                     </div>
                 </div>
@@ -3348,7 +3365,7 @@ class DataManager {
                 <div className="modal-overlay" onClick={onClose}>
                     <div className="modal" onClick={(e) => e.stopPropagation()} style={{maxWidth: '800px', maxHeight: '90vh', overflowY: 'auto'}}>
                         <div className="modal-header">
-                            <h2>Checklist Details - {checklist.checklistNo}</h2>
+                            <h2>Checklist Details - {formatDateDMY(checklist.date)}</h2>
                             <button className="modal-close" onClick={onClose}>✕</button>
                         </div>
                         
@@ -3356,10 +3373,6 @@ class DataManager {
                             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
                                 <div>
                                     <h3 style={{color: '#2c3e50', marginBottom: '15px', borderBottom: '2px solid #3498db', paddingBottom: '8px'}}>Basic Information</h3>
-                                    <div style={{marginBottom: '12px'}}>
-                                        <strong style={{color: '#7f8c8d'}}>Checklist Number:</strong>
-                                        <div style={{marginTop: '4px', fontSize: '15px'}}>{checklist.checklistNo || '-'}</div>
-                                    </div>
                                     <div style={{marginBottom: '12px'}}>
                                         <strong style={{color: '#7f8c8d'}}>Date:</strong>
                                         <div style={{marginTop: '4px', fontSize: '15px'}}>{formatDateDMY(checklist.date) || '-'}</div>
@@ -3371,6 +3384,10 @@ class DataManager {
                                     <div style={{marginBottom: '12px'}}>
                                         <strong style={{color: '#7f8c8d'}}>Operator:</strong>
                                         <div style={{marginTop: '4px', fontSize: '15px'}}>{checklist.operator || '-'}</div>
+                                    </div>
+                                    <div style={{marginBottom: '12px'}}>
+                                        <strong style={{color: '#7f8c8d'}}>Department:</strong>
+                                        <div style={{marginTop: '4px', fontSize: '15px'}}>{checklist.department || '-'}</div>
                                     </div>
                                 </div>
 
@@ -3441,7 +3458,6 @@ class DataManager {
             };
 
             const [formData, setFormData] = useState(checklist || {
-                checklistNo: '',
                 date: (() => { const d=new Date(); const yyyy=d.getFullYear(); const mm=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${yyyy}-${mm}-${dd}`; })(),
                 unitNo: '',
                 operator: '',
@@ -3451,19 +3467,6 @@ class DataManager {
                 issueDetails: '',
                 repairAction: 'Request Repair'
             });
-
-            // Generate checklist number automatically if new
-            useState(() => {
-                if (!checklist) {
-                    const today = new Date();
-                    const year = today.getFullYear();
-                    const existingChecks = dataManager.data.checklists.filter(c => 
-                        c.checklistNo && c.checklistNo.startsWith(`CL-${year}`)
-                    );
-                    const nextNum = existingChecks.length + 1;
-                    setFormData(prev => ({...prev, checklistNo: `CL-${year}-${String(nextNum).padStart(3, '0')}`}));
-                }
-            }, []);
 
             const handleSubmit = (e) => {
                 e.preventDefault();
@@ -3510,10 +3513,6 @@ class DataManager {
                         <form onSubmit={handleSubmit}>
                             <div className="modal-body">
                                 <div className="form-row">
-                                    <div className="form-field">
-                                        <label>Checklist No</label>
-                                        <input type="text" value={formData.checklistNo} onChange={(e) => setFormData({...formData, checklistNo: e.target.value})} readOnly style={{background: '#f5f5f5'}} />
-                                    </div>
                                     <div className="form-field">
                                         <label>Date *</label>
                                         <input type="date" value={formData.date} onChange={(e) => setFormData({...formData, date: e.target.value})} required />
