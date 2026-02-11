@@ -2581,8 +2581,8 @@ class DataManager {
                                         <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
                                     </div>
                                     <div className="form-field">
-                                        <label>License Number *</label>
-                                        <input type="text" value={formData.licenseNo} onChange={(e) => setFormData({...formData, licenseNo: e.target.value})} required />
+                                        <label>License Number</label>
+                                        <input type="text" value={formData.licenseNo} onChange={(e) => setFormData({...formData, licenseNo: e.target.value})} placeholder="Optional" />
                                     </div>
                                 </div>
 
@@ -2613,8 +2613,8 @@ class DataManager {
                                         <input type="text" placeholder="DD-MM-YYYY" value={formData.validFrom} onChange={(e) => setFormData({...formData, validFrom: e.target.value})} />
                                     </div>
                                     <div className="form-field">
-                                        <label>License Expiry (DD-MM-YYYY) *</label>
-                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.licenseExpiry} onChange={(e) => setFormData({...formData, licenseExpiry: e.target.value})} required />
+                                        <label>License Expiry (DD-MM-YYYY)</label>
+                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.licenseExpiry} onChange={(e) => setFormData({...formData, licenseExpiry: e.target.value})} />
                                     </div>
                                 </div>
 
@@ -2652,8 +2652,8 @@ class DataManager {
                                         <input type="text" value={formData.assessorName} onChange={(e) => setFormData({...formData, assessorName: e.target.value})} />
                                     </div>
                                     <div className="form-field">
-                                        <label>Status *</label>
-                                        <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})} required>
+                                        <label>Status</label>
+                                        <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
                                             <option value="Active">Active</option>
                                             <option value="Inactive">Inactive</option>
                                             <option value="Terminated">Terminated</option>
@@ -3207,7 +3207,7 @@ class DataManager {
                 }
             };
 
-            const handleSave = (checklistData) => {
+            const handleSave = async (checklistData) => {
                 // Check if operator exists in the operators list
                 const operatorName = checklistData.operator?.trim();
                 if (operatorName) {
@@ -3215,21 +3215,30 @@ class DataManager {
                         op => op.name.toLowerCase() === operatorName.toLowerCase()
                     );
                     
-                    // If operator doesn't exist, add them automatically
+                    // If operator doesn't exist, ask for confirmation
                     if (!existingOperator) {
-                        const newOperator = {
-                            name: operatorName,
-                            licenseNo: 'TBA',
-                            department: checklistData.department || '',
-                            validFrom: new Date().toISOString().split('T')[0],
-                            licenseExpiry: '',
-                            classes: 'LO',
-                            hireDate: new Date().toISOString().split('T')[0],
-                            status: 'Active'
-                        };
+                        const confirmAdd = confirm(
+                            `"${operatorName}" is not in the Operator list.\n\nWould you like to add this operator?`
+                        );
                         
-                        dataManager.addOperator(newOperator);
-                        console.log('✅ New operator added:', operatorName);
+                        if (confirmAdd) {
+                            const newOperator = {
+                                name: operatorName,
+                                licenseNo: 'TBA',
+                                department: checklistData.department || '',
+                                validFrom: new Date().toISOString().split('T')[0],
+                                licenseExpiry: '',
+                                classes: 'LO',
+                                hireDate: new Date().toISOString().split('T')[0],
+                                status: 'Active'
+                            };
+                            
+                            dataManager.addOperator(newOperator);
+                            alert(`✅ Operator "${operatorName}" has been added successfully!`);
+                        } else {
+                            // User chose not to add operator, cancel checklist save
+                            return;
+                        }
                     }
                 }
                 
