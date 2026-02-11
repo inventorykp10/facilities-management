@@ -2091,6 +2091,24 @@ class DataManager {
             const [showModal, setShowModal] = useState(false);
             const [editingOperator, setEditingOperator] = useState(null);
             const [searchTerm, setSearchTerm] = useState('');
+            
+            // Refresh operators list when component becomes visible
+            useEffect(() => {
+                const refreshOperators = () => {
+                    setOperators([...dataManager.getBankstownOperators()]);
+                };
+                
+                // Refresh on window focus (when user switches back to this tab)
+                window.addEventListener('focus', refreshOperators);
+                
+                // Refresh every 2 seconds to catch changes from other components
+                const interval = setInterval(refreshOperators, 2000);
+                
+                return () => {
+                    window.removeEventListener('focus', refreshOperators);
+                    clearInterval(interval);
+                };
+            }, []);
 
 
             const operatorImportInputRef = useRef(null);
