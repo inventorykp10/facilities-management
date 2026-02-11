@@ -2087,7 +2087,7 @@ class DataManager {
 
         // OPERATORS - Full implementation with Edit/Delete/Add/Photo Upload
         function Operators() {
-            const [operators, setOperators] = useState(dataManager.getBankstownOperators());
+            const [operators, setOperators] = useState(dataManager.data.operators || []);
             const [showModal, setShowModal] = useState(false);
             const [editingOperator, setEditingOperator] = useState(null);
             const [searchTerm, setSearchTerm] = useState('');
@@ -2095,7 +2095,7 @@ class DataManager {
             // Refresh operators list when component becomes visible
             useEffect(() => {
                 const refreshOperators = () => {
-                    setOperators([...dataManager.getBankstownOperators()]);
+                    setOperators([...dataManager.data.operators || []]);
                 };
                 
                 // Refresh on window focus (when user switches back to this tab)
@@ -2273,7 +2273,7 @@ class DataManager {
             const handleDelete = (id) => {
                 if (confirm('Are you sure you want to delete this operator?')) {
                     dataManager.deleteOperator(id);
-                    setOperators([...dataManager.getBankstownOperators()]);
+                    setOperators([...dataManager.data.operators || []]);
                 }
             };
 
@@ -2283,7 +2283,7 @@ class DataManager {
                 } else {
                     dataManager.addOperator(operatorData);
                 }
-                setOperators([...dataManager.getBankstownOperators()]);
+                setOperators([...dataManager.data.operators || []]);
                 setShowModal(false);
             };
 
@@ -3497,8 +3497,8 @@ class DataManager {
             // Get forklift list
             const forklifts = dataManager.data.forklifts.map(f => f.unitNo);
             
-            // Get operator list
-            const operators = [...new Set(dataManager.getBankstownOperators().map(o => o.name))].sort();
+            // Get operator list - show all operators
+            const operators = [...new Set((dataManager.data.operators || []).map(o => o.name))].sort();
 
             return (
                 <div className="modal-overlay" onClick={onClose}>
