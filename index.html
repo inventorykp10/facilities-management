@@ -3073,6 +3073,7 @@ class DataManager {
             const [showDetailModal, setShowDetailModal] = useState(false);
             const [viewingChecklist, setViewingChecklist] = useState(null);
             const [searchTerm, setSearchTerm] = useState('');
+            const [savedDate, setSavedDate] = useState(null); // Save & Next 시 날짜 유지
 
             const formatDateDMY = (dateStr) => {
                 if (!dateStr) return '';
@@ -3107,6 +3108,7 @@ class DataManager {
 
             const handleAdd = () => {
                 setEditingChecklist(null);
+                setSavedDate(null); // 새로 Add 버튼 클릭 시 날짜 초기화
                 setShowModal(true);
             };
 
@@ -3204,12 +3206,14 @@ class DataManager {
                 
                 // If Save & Next was clicked, keep modal open and reset form
                 if (saveAndContinue) {
+                    setSavedDate(checklistData.date); // 날짜 저장
                     setEditingChecklist(null);
                     // Modal will automatically reset to empty form because editingChecklist is now null
                     // Force re-render by closing and reopening
                     setShowModal(false);
                     setTimeout(() => setShowModal(true), 10);
                 } else {
+                    setSavedDate(null); // Close 시 날짜 초기화
                     setShowModal(false);
                 }
             };
@@ -3282,7 +3286,15 @@ class DataManager {
                 </div>
 
                     {showModal && (
-                        <ChecklistModal checklist={editingChecklist} onSave={handleSave} onClose={() => setShowModal(false)} />
+                        <ChecklistModal 
+                            checklist={editingChecklist} 
+                            savedDate={savedDate}
+                            onSave={handleSave} 
+                            onClose={() => {
+                                setShowModal(false);
+                                setSavedDate(null); // Cancel 시 날짜 초기화
+                            }} 
+                        />
                     )}
 
                     {showDetailModal && viewingChecklist && (
@@ -3380,7 +3392,7 @@ class DataManager {
             );
         }
 
-        function ChecklistModal({ checklist, onSave, onClose }) {
+        function ChecklistModal({ checklist, savedDate, onSave, onClose }) {
             // Date helpers: store as ISO (YYYY-MM-DD) for <input type="date">, display as DD-MM-YYYY elsewhere
             const getCurrentISODate = () => {
                 const d = new Date();
@@ -3405,7 +3417,7 @@ class DataManager {
             };
 
             const [formData, setFormData] = useState(checklist || {
-                date: (() => { const d=new Date(); const yyyy=d.getFullYear(); const mm=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${yyyy}-${mm}-${dd}`; })(),
+                date: savedDate || (() => { const d=new Date(); const yyyy=d.getFullYear(); const mm=String(d.getMonth()+1).padStart(2,'0'); const dd=String(d.getDate()).padStart(2,'0'); return `${yyyy}-${mm}-${dd}`; })(),
                 unitNo: '',
                 operator: '',
                 department: '',
