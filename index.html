@@ -3165,6 +3165,32 @@ class DataManager {
                             // User chose not to add operator, cancel checklist save
                             return;
                         }
+                    } else {
+                        // If operator exists, check and update empty Department and Shift fields
+                        let needsUpdate = false;
+                        const updatedFields = [];
+                        
+                        // Check if Department is empty and Checklist has Department info
+                        if ((!existingOperator.department || existingOperator.department.trim() === '') && 
+                            checklistData.department && checklistData.department.trim() !== '') {
+                            existingOperator.department = checklistData.department;
+                            needsUpdate = true;
+                            updatedFields.push('Department');
+                        }
+                        
+                        // Check if Shift is empty and Checklist has Shift info
+                        if ((!existingOperator.shift || existingOperator.shift.trim() === '') && 
+                            checklistData.shift && checklistData.shift.trim() !== '') {
+                            existingOperator.shift = checklistData.shift;
+                            needsUpdate = true;
+                            updatedFields.push('Shift');
+                        }
+                        
+                        // Update operator if needed
+                        if (needsUpdate) {
+                            dataManager.updateOperator(existingOperator.id, existingOperator);
+                            console.log(`✅ Operator "${operatorName}" updated: ${updatedFields.join(', ')} filled from Checklist`);
+                        }
                     }
                 }
                 
