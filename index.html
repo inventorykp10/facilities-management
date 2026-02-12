@@ -3516,28 +3516,109 @@ class DataManager {
 
                                 <div className="form-field">
                                     <label>Result *</label>
-                                    <div style={{display: 'flex', gap: '20px', marginTop: '8px'}}>
-                                        <label style={{display: 'flex', alignItems: 'center', cursor: 'pointer'}}>
+                                    <div style={{display: 'flex', gap: '20px', marginTop: '10px'}}>
+                                        <label style={{
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            cursor: 'pointer',
+                                            padding: '10px 16px',
+                                            border: formData.result === 'Pass' ? '2px solid #27ae60' : '2px solid #ddd',
+                                            borderRadius: '8px',
+                                            background: formData.result === 'Pass' ? '#e8f5e9' : '#fff',
+                                            transition: 'all 0.2s',
+                                            flex: 1
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (formData.result !== 'Pass') {
+                                                e.currentTarget.style.borderColor = '#27ae60';
+                                                e.currentTarget.style.background = '#f8fdf9';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (formData.result !== 'Pass') {
+                                                e.currentTarget.style.borderColor = '#ddd';
+                                                e.currentTarget.style.background = '#fff';
+                                            }
+                                        }}
+                                        >
                                             <input 
                                                 type="radio" 
                                                 name="result" 
                                                 value="Pass" 
                                                 checked={formData.result === 'Pass'} 
                                                 onChange={(e) => handleResultChange(e.target.value)}
-                                                style={{marginRight: '8px'}}
+                                                style={{display: 'none'}}
                                             />
-                                            <span style={{color: '#27ae60', fontWeight: 600}}>✅ Pass</span>
+                                            <div style={{
+                                                width: '24px',
+                                                height: '24px',
+                                                borderRadius: '50%',
+                                                background: '#27ae60',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                marginRight: '10px',
+                                                flexShrink: 0
+                                            }}>
+                                                <span style={{color: '#fff', fontSize: '14px', fontWeight: 'bold'}}>✓</span>
+                                            </div>
+                                            <span style={{
+                                                color: formData.result === 'Pass' ? '#27ae60' : '#7f8c8d', 
+                                                fontWeight: formData.result === 'Pass' ? 600 : 500,
+                                                fontSize: '15px'
+                                            }}>Pass</span>
                                         </label>
-                                        <label style={{display: 'flex', alignItems: 'center', cursor: 'pointer'}}>
+                                        
+                                        <label style={{
+                                            display: 'flex', 
+                                            alignItems: 'center', 
+                                            cursor: 'pointer',
+                                            padding: '10px 16px',
+                                            border: formData.result === 'Faulty' ? '2px solid #e74c3c' : '2px solid #ddd',
+                                            borderRadius: '8px',
+                                            background: formData.result === 'Faulty' ? '#ffebee' : '#fff',
+                                            transition: 'all 0.2s',
+                                            flex: 1
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (formData.result !== 'Faulty') {
+                                                e.currentTarget.style.borderColor = '#e74c3c';
+                                                e.currentTarget.style.background = '#fff9f9';
+                                            }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (formData.result !== 'Faulty') {
+                                                e.currentTarget.style.borderColor = '#ddd';
+                                                e.currentTarget.style.background = '#fff';
+                                            }
+                                        }}
+                                        >
                                             <input 
                                                 type="radio" 
                                                 name="result" 
                                                 value="Faulty" 
                                                 checked={formData.result === 'Faulty'} 
                                                 onChange={(e) => handleResultChange(e.target.value)}
-                                                style={{marginRight: '8px'}}
+                                                style={{display: 'none'}}
                                             />
-                                            <span style={{color: '#e74c3c', fontWeight: 600}}>❌ Faulty</span>
+                                            <div style={{
+                                                width: '24px',
+                                                height: '24px',
+                                                borderRadius: '50%',
+                                                background: '#e74c3c',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                marginRight: '10px',
+                                                flexShrink: 0
+                                            }}>
+                                                <span style={{color: '#fff', fontSize: '14px', fontWeight: 'bold'}}>✕</span>
+                                            </div>
+                                            <span style={{
+                                                color: formData.result === 'Faulty' ? '#e74c3c' : '#7f8c8d', 
+                                                fontWeight: formData.result === 'Faulty' ? 600 : 500,
+                                                fontSize: '15px'
+                                            }}>Faulty</span>
                                         </label>
                                     </div>
                                 </div>
