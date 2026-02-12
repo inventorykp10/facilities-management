@@ -2223,6 +2223,7 @@ class DataManager {
                                         <th>Name</th>
                                         <th>License No</th>
                                         <th>Department</th>
+                                        <th>Shift</th>
                                         <th>Valid From</th>
                                         <th>Expiry</th>
                                         <th>Classes</th>
@@ -2242,6 +2243,7 @@ class DataManager {
                                                 <td><strong>{op.name}</strong></td>
                                                 <td>{op.licenseNo}</td>
                                                 <td>{op.department || '-'}</td>
+                                                <td>{op.shift || '-'}</td>
                                                 <td>{op.validFrom}</td>
                                                 <td style={expiryStyle}>{expiryDisplay}</td>
                                                 <td>{op.classes}</td>
@@ -2417,13 +2419,14 @@ class DataManager {
                 name: '',
                 licenseNo: '',
                 department: '',
+                shift: '',
                 validFrom: '',
                 licenseExpiry: '',
-                classes: '',
+                classes: 'LF',
                 hireDate: '',
-                assessmentDone: 'No',
+                assessmentDone: 'Yes',
                 assessmentDate: '',
-                assessorName: '',
+                assessorName: 'Joshua Odowd / Rudy Djie',
                 status: 'Active',
                 terminationDate: '',
                 terminationReason: '',
@@ -2497,6 +2500,18 @@ class DataManager {
                                     <div className="form-field">
                                         <label>Classes</label>
                                         <input type="text" value={formData.classes} onChange={(e) => setFormData({...formData, classes: e.target.value})} />
+                                    </div>
+
+                                    <div className="form-field">
+                                      <label>Shift</label>
+                                      <select
+                                        value={formData.shift || ''}
+                                        onChange={(e) => setFormData({ ...formData, shift: e.target.value })}
+                                    >
+                                        <option value="">Select Shift</option>
+                                        <option value="AM">AM</option>
+                                        <option value="PM">PM</option>
+                                      </select>
                                     </div>
                                 </div>
 
@@ -3126,6 +3141,7 @@ class DataManager {
                                 name: operatorName,
                                 licenseNo: 'TBA',
                                 department: checklistData.department || '',
+                                shift: checklistData.shift || '',
                                 validFrom: '',
                                 licenseExpiry: '',
                                 classes: 'LF',
@@ -3214,7 +3230,7 @@ class DataManager {
                                             <td>{c.department || '-'}</td>
                                             <td>{c.shift}</td>
                                             <td><span className={`status-badge status-${(c.result || '').toLowerCase()}`}>{c.result}</span></td>
-                                            <td style={{maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px'}}>{c.issueDetails || '-'}</td>
+                                            <td style={{maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '13px'}}>{c.issueDetails || '-'}</td>
                                             <td style={{fontSize: '13px'}}>{c.repairAction || '-'}</td>
                                             <td>
                                                 <div className="action-icons">
@@ -3360,7 +3376,7 @@ class DataManager {
                 shift: 'AM',
                 result: 'Pass',
                 issueDetails: '',
-                repairAction: 'Request Repair'
+                repairAction: ''
             });
 
             const handleSubmit = (e) => {
