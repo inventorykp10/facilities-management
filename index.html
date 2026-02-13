@@ -2081,8 +2081,8 @@ class DataManager {
                                         <th style={{width: '100px'}}>Log No</th>
                                         <th style={{width: '80px'}}>Unit</th>
                                         <th style={{width: '105px'}}>Date</th>
-                                        <th style={{width: 'auto', minWidth: '200px'}}>Issue</th>
-                                        <th style={{width: 'auto', minWidth: '200px'}}>Repair Details</th>
+                                        <th style={{width: 'auto', minWidth: '300px'}}>Issue</th>
+                                        <th style={{width: 'auto', minWidth: '150px'}}>Repair Details</th>
                                         <th style={{width: '120px'}}>Reported By</th>
                                         <th style={{width: '110px'}}>Status</th>
                                         <th style={{width: '120px'}}>Actions</th>
@@ -2094,8 +2094,8 @@ class DataManager {
                                             <td><strong>{record.logNo}</strong></td>
                                             <td>{record.unitNo}</td>
                                             <td>{formatDate(record.dateReported)}</td>
-                                            <td style={{maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{record.issue || '-'}</td>
-                                            <td style={{maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{record.repairDetails || '-'}</td>
+                                            <td style={{maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{record.issue || '-'}</td>
+                                            <td style={{maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{record.repairDetails || '-'}</td>
                                             <td>{record.reportedBy || '-'}</td>
                                             <td><span className={`status-badge status-${(record.status || '').toLowerCase().replace(' ', '-')}`}>{record.status}</span></td>
                                             <td>
@@ -3734,10 +3734,10 @@ return (
                             </div>
                         </div>
 
-                        {/* Range summary table (only when date range) */}
-                        {(endDate && endDate !== selectedDate) && (
+                        {/* Range summary table - Always show when range is selected */}
+                        {dateList.length > 1 && (
                             <div style={{margin:'0 20px 10px', border:'1px solid #e9ecef', borderRadius:'8px', overflow:'hidden'}}>
-                                <div style={{padding:'8px 12px', background:'#f8f9fa', fontSize:'13px', fontWeight:600, color:'#2c3e50'}}>Range Summary</div>
+                                <div style={{padding:'8px 12px', background:'#f8f9fa', fontSize:'13px', fontWeight:600, color:'#2c3e50'}}>Range Summary ({dateList.length} days)</div>
                                 <div className="table-wrapper">
                                     <table className="data-table" style={{marginBottom:0}}>
                                         <thead>
@@ -3750,8 +3750,8 @@ return (
                                         </thead>
                                         <tbody>
                                             {rangeStats.map(r => (
-                                                <tr key={r.date} style={{cursor:'pointer'}} onClick={() => setActiveDate(r.date)}>
-                                                    <td><strong>{r.date}</strong>{r.date === activeDate ? ' ✅' : ''}</td>
+                                                <tr key={r.date}>
+                                                    <td><strong>{r.date}</strong></td>
                                                     <td>{r.allOperatorsCount}</td>
                                                     <td>{r.submittedCount}</td>
                                                     <td style={{color: r.missingCount > 0 ? '#c62828' : 'inherit', fontWeight: r.missingCount > 0 ? 700 : 400}}>{r.missingCount}</td>
@@ -3763,8 +3763,114 @@ return (
                             </div>
                         )}
 
-                        {/* Inline operator list below stat cards */}
-                        {listView && (() => {
+                        {/* Show all dates data when range is selected */}
+                        {listView && dateList.length > 1 && (() => {
+                            // For each date in range, show the operator list
+                            return rangeStats.map(dateStat => {
+                                const operatorMap = new Map();
+                                dataManager.getBankstownOperators().forEach(o => {
+                                    operatorMap.set(normalizeName(o.name || ''), o);
+                                });
+
+                                // Get checklist info for this specific date+shift
+                                const checklistMap = new Map();
+                                (dataManager.data.checklists || []).forEach(c => {
+                                    const d = (c.date || '').toString().trim();
+                                    let iso = '';
+                                    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) iso = d;
+                                    else {
+                                        const m2 = d.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+                                        if (m2) iso = `${m2[3]}-${m2[2]}-${m2[1]}`;
+                                    }
+                                    if (iso === dateStat.date) {
+                                        const cshift = String(c.shift || '').toUpperCase();
+                                        const wanted = selectedShift.toUpperCase();
+                                        if (wanted === 'ALL' || cshift === wanted) {
+                                            const key = normalizeName(c.operator || '');
+                                            if (key) checklistMap.set(key, c);
+                                        }
+                                    }
+                                });
+
+                                let names = [];
+                                let listTitle = '';
+                                let listColor = '#2c3e50';
+
+                                if (listView === 'MISSING') {
+                                    names = (dateStat.missing || []);
+                                    listTitle = `Missing (${names.length})`;
+                                    listColor = '#c62828';
+                                } else if (listView === 'SUBMITTED') {
+                                    names = (dateStat.submittedList || []);
+                                    listTitle = `Submitted (${names.length})`;
+                                    listColor = '#27ae60';
+                                } else {
+                                    names = Array.from(operatorSet).sort();
+                                    listTitle = `All Operators (${names.length})`;
+                                    listColor = '#2c3e50';
+                                }
+
+                                const rows = names.map(n => {
+                                    const op = operatorMap.get(n) || {};
+                                    const cl = checklistMap.get(n) || {};
+                                    const sub = (dateStat.submittedList || []).includes(n);
+                                    return {
+                                        name: displayName(n),
+                                        unit: cl.unitNo || '-',
+                                        department: cl.department || op.department || '-',
+                                        shift: cl.shift || op.shift || '-',
+                                        status: sub ? 'Submitted' : 'Missing',
+                                        normalized: n
+                                    };
+                                });
+
+                                if (rows.length === 0) return null;
+
+                                return (
+                                    <div key={dateStat.date} style={{borderTop:'1px solid #e9ecef', marginBottom:'10px'}}>
+                                        <div style={{padding:'12px 20px', display:'flex', alignItems:'center', justifyContent:'space-between', background:'#f8f9fa'}}>
+                                            <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                                                <span style={{fontWeight:700, fontSize:'14px', color: listColor}}>{dateStat.date} - {listTitle}</span>
+                                                <span style={{fontSize:'11px', color:'#7f8c8d', background:'#e9ecef', padding:'2px 8px', borderRadius:'10px'}}>{selectedShift}</span>
+                                            </div>
+                                        </div>
+                                        <div className="table-wrapper" style={{maxHeight:'50vh', overflowY:'auto'}}>
+                                            <table className="data-table" style={{marginBottom:0, fontSize:'13px', tableLayout:'fixed', width:'100%'}}>
+                                                <thead style={{position:'sticky', top:0, zIndex:1}}>
+                                                    <tr>
+                                                        <th style={{width:'5%'}}>#</th>
+                                                        <th style={{width:'28%'}}>Operator</th>
+                                                        <th style={{width:'14%'}}>Unit</th>
+                                                        <th style={{width:'28%'}}>Department</th>
+                                                        <th style={{width:'10%'}}>Shift</th>
+                                                        <th style={{width:'15%'}}>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {rows.map((r, i) => (
+                                                        <tr key={r.normalized}>
+                                                            <td style={{color:'#adb5bd'}}>{i+1}</td>
+                                                            <td style={{fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.name}</td>
+                                                            <td>{r.unit}</td>
+                                                            <td style={{overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.department}</td>
+                                                            <td>{r.shift}</td>
+                                                            <td>
+                                                                <span style={{fontSize:'11px', fontWeight:700, color: r.status === 'Submitted' ? '#27ae60' : '#c62828', background: r.status === 'Submitted' ? '#e8f5e9' : '#ffebee', padding:'3px 8px', borderRadius:'10px'}}>
+                                                                    {r.status}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                );
+                            });
+                        })()}
+
+                        {/* Single date view - show only when single date selected */}
+                        {listView && dateList.length === 1 && (() => {
                             // Build rows with operator details
                             const operatorMap = new Map();
                             dataManager.getBankstownOperators().forEach(o => {
