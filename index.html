@@ -3495,7 +3495,7 @@ class DataManager {
                 unitNo: '',
                 operator: '',
                 department: '',
-                shift: 'AM',
+                shift: '',
                 result: 'Pass',
                 issueDetails: '',
                 repairAction: ''
@@ -3616,6 +3616,7 @@ class DataManager {
                                     <div className="form-field">
                                         <label>Shift *</label>
                                         <select value={formData.shift} onChange={(e) => setFormData({...formData, shift: e.target.value})} required>
+                                            <option value="">Select Shift</option>
                                             <option value="AM">AM</option>
                                             <option value="PM">PM</option>
                                         </select>
