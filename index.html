@@ -1546,6 +1546,9 @@ class DataManager {
                             <div className="search-box">
                                 <span className="search-icon">🔍</span>
                                 <input type="text" placeholder="Search by Name or License..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                {searchTerm && (
+                                    <button onClick={() => setSearchTerm('')} style={{position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#95a5a6'}}>✕</button>
+                                )}
                             </div>
                         </div>
 
@@ -1892,14 +1895,6 @@ class DataManager {
                                         <label>Assessor Name</label>
                                         <input type="text" value={formData.assessorName} onChange={(e) => setFormData({...formData, assessorName: e.target.value})} />
                                     </div>
-                                    <div className="form-field">
-                                        <label>Status</label>
-                                        <select value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
-                                            <option value="Active">Active</option>
-                                            <option value="Inactive">Inactive</option>
-                                            <option value="Terminated">Terminated</option>
-                                        </select>
-                                    </div>
                                 </div>
 
                                 <div className="form-field full-width">
@@ -2067,6 +2062,9 @@ class DataManager {
                             <div className="search-box">
                                 <span className="search-icon">🔍</span>
                                 <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
+                                {searchTerm && (
+                                    <button onClick={() => setSearchTerm('')} style={{position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#95a5a6'}}>✕</button>
+                                )}
                             </div>
                             <select className="filter-select" value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setCurrentPage(1); }}>
                                 <option value="all">All Status</option>
@@ -2406,6 +2404,8 @@ class DataManager {
             const [showDetailModal, setShowDetailModal] = useState(false);
             const [viewingChecklist, setViewingChecklist] = useState(null);
             const [searchTerm, setSearchTerm] = useState('');
+            const [startDate, setStartDate] = useState('');
+            const [endDate, setEndDate] = useState('');
             const [savedDate, setSavedDate] = useState(null); // Save & Next 시 날짜 유지
 
             const formatDateDMY = (dateStr) => {
@@ -2423,10 +2423,34 @@ class DataManager {
 
 
             const filteredChecklists = checklists
-                .filter(c =>
-                    (c.unitNo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    (c.operator || '').toLowerCase().includes(searchTerm.toLowerCase())
-                )
+                .filter(c => {
+                    const matchesSearch = (c.unitNo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        (c.operator || '').toLowerCase().includes(searchTerm.toLowerCase());
+                    
+                    if (!matchesSearch) return false;
+                    
+                    // Date range filter
+                    if (startDate || endDate) {
+                        const checklistDate = new Date(c.date || '');
+                        if (isNaN(checklistDate)) return false;
+                        
+                        if (startDate) {
+                            const start = new Date(startDate);
+                            start.setHours(0, 0, 0, 0);
+                            checklistDate.setHours(0, 0, 0, 0);
+                            if (checklistDate < start) return false;
+                        }
+                        
+                        if (endDate) {
+                            const end = new Date(endDate);
+                            end.setHours(23, 59, 59, 999);
+                            checklistDate.setHours(0, 0, 0, 0);
+                            if (checklistDate > end) return false;
+                        }
+                    }
+                    
+                    return true;
+                })
                 .sort((a, b) => {
                     // Sort by date descending (newest first)
                     const dateA = new Date(a.date || '');
@@ -2481,7 +2505,7 @@ class DataManager {
                                 licenseExpiry: '',
                                 classes: 'LF',
                                 hireDate: '',
-                                status: '',
+                                status: 'Active',
                                 assessmentDone: '',
                                 assessmentDate: '',
                                 assessorName: '',
@@ -2582,6 +2606,18 @@ class DataManager {
                             <div className="search-box">
                                 <span className="search-icon">🔍</span>
                                 <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                                {searchTerm && (
+                                    <button onClick={() => setSearchTerm('')} style={{position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#95a5a6'}}>✕</button>
+                                )}
+                            </div>
+                            <div style={{display: 'flex', gap: '10px', alignItems: 'center'}}>
+                                <label style={{fontSize: '14px', fontWeight: 600, color: '#2c3e50'}}>Date Range:</label>
+                                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{padding: '8px 12px', border: '1px solid #ddd', borderRadius: '8px'}} />
+                                <span style={{color: '#7f8c8d'}}>to</span>
+                                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{padding: '8px 12px', border: '1px solid #ddd', borderRadius: '8px'}} />
+                                {(startDate || endDate) && (
+                                    <button onClick={() => {setStartDate(''); setEndDate('');}} className="btn btn-secondary" style={{padding: '8px 12px'}}>Clear</button>
+                                )}
                             </div>
                         </div>
 
@@ -2765,6 +2801,20 @@ class DataManager {
                 issueDetails: '',
                 repairAction: ''
             });
+
+            const handleCancel = () => {
+                // Cancel: 입력 필드 초기화
+                setFormData({
+                    date: getCurrentISODate(),
+                    unitNo: '',
+                    operator: '',
+                    department: '',
+                    shift: '',
+                    result: 'Pass',
+                    issueDetails: '',
+                    repairAction: ''
+                });
+            };
 
             const handleSubmit = (e, saveAndContinue = false) => {
                 e.preventDefault();
@@ -3092,11 +3142,11 @@ class DataManager {
                                 )}
                             </div>
                             <div className="modal-footer">
-                                <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+                                <button type="button" className="btn btn-secondary" onClick={handleCancel}>Cancel</button>
                                 {!checklist && (
                                     <button type="button" className="btn btn-primary" onClick={(e) => handleSubmit(e, true)}>💾 Save & Next</button>
                                 )}
-                                <button type="submit" className="btn btn-success">{checklist ? '✓ Update' : '✓ Close'}</button>
+                                <button type="submit" className="btn btn-success">{checklist ? '✓ Update' : '✓ Save & Close'}</button>
                             </div>
                         </form>
                     </div>
@@ -3178,6 +3228,9 @@ class DataManager {
                             <div className="search-box">
                                 <span className="search-icon">🔍</span>
                                 <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
+                                {searchTerm && (
+                                    <button onClick={() => setSearchTerm('')} style={{position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#95a5a6'}}>✕</button>
+                                )}
                             </div>
                             <select className="filter-select" value={filterType} onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}>
                                 <option value="all">All Types</option>
