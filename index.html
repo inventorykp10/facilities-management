@@ -3704,9 +3704,6 @@ return (
                             <p>Attendance vs checklist submission</p>
                         </div>
                         <div className="content-header-right">
-                            <button className="btn btn-secondary" onClick={() => setShowAttendanceView(!showAttendanceView)} style={{marginRight:'10px'}}>
-                                {showAttendanceView ? '📊 View Compliance' : '👥 View Attendance'}
-                            </button>
                             <button className="btn btn-secondary" onClick={handleImportClick}>📥 Import Attendance</button>
                             <input ref={fileRef} type="file" accept=".xlsx,.xls" multiple style={{display:'none'}} onChange={handleFileChange} />
                         </div>
@@ -3735,15 +3732,25 @@ return (
                                 {[
                                     {key:'ALL', label:'Present Today', count: totalOperators, icon:'👥', bg:'#f0f7ff', border:'#d6e8f7', labelColor:'#5a7fa0'},
                                     {key:'SUBMITTED', label:'Submitted', count: submittedCount, icon:'✅', bg:'#f0faf0', border:'#c8e6c9', labelColor:'#388e3c'},
-                                    {key:'MISSING', label:'Missing', count: missingCount, icon: missingCount > 0 ? '🚨' : '✅', bg: missingCount > 0 ? '#fff5f5' : '#f0faf0', border: missingCount > 0 ? '#ffcdd2' : '#c8e6c9', labelColor: missingCount > 0 ? '#c62828' : '#388e3c'}
+                                    {key:'MISSING', label:'Missing', count: missingCount, icon: missingCount > 0 ? '🚨' : '✅', bg: missingCount > 0 ? '#fff5f5' : '#f0faf0', border: missingCount > 0 ? '#ffcdd2' : '#c8e6c9', labelColor: missingCount > 0 ? '#c62828' : '#388e3c'},
+                                    {key:'ATTENDANCE', label:'Attendance', count: attendanceRecords.length, icon:'📋', bg:'#fef5e7', border:'#f9e79f', labelColor:'#d68910'}
                                 ].map(pill => (
                                     <div key={pill.key}
-                                        onClick={() => setListView(listView === pill.key ? null : pill.key)}
+                                        onClick={() => {
+                                            if (pill.key === 'ATTENDANCE') {
+                                                setShowAttendanceView(!showAttendanceView);
+                                                setListView(null);
+                                            } else {
+                                                setShowAttendanceView(false);
+                                                setListView(listView === pill.key ? null : pill.key);
+                                            }
+                                        }}
                                         style={{
                                             flex:1, display:'flex', alignItems:'center', justifyContent:'space-between',
-                                            padding:'10px 14px', background: listView === pill.key ? pill.bg : '#fafafa',
+                                            padding:'10px 14px', 
+                                            background: (pill.key === 'ATTENDANCE' && showAttendanceView) || (pill.key !== 'ATTENDANCE' && listView === pill.key) ? pill.bg : '#fafafa',
                                             borderRadius:'10px', cursor:'pointer',
-                                            border: listView === pill.key ? `2px solid ${pill.border}` : '1px solid #e9ecef',
+                                            border: ((pill.key === 'ATTENDANCE' && showAttendanceView) || (pill.key !== 'ATTENDANCE' && listView === pill.key)) ? `2px solid ${pill.border}` : '1px solid #e9ecef',
                                             transition:'all 0.15s', position:'relative'
                                         }}>
                                         <div>
@@ -4211,10 +4218,27 @@ return (
                                                 return;
                                             }
                                             
-                                            // Add department and shift info
+                                            // Add department, shift, and compliance info
                                             const exportData = filtered.map(r => {
                                                 const normalized = normalizeName(r.name);
                                                 const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
+                                                const recordDate = r.date;
+                                                const operatorShift = (operator?.shift || '').toUpperCase();
+                                                
+                                                // Check if checklist was submitted
+                                                const hasChecklist = (dataManager.data.checklists || []).some(c => {
+                                                    const d = (c.date || '').toString().trim();
+                                                    let iso = '';
+                                                    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) iso = d;
+                                                    else {
+                                                        const m = d.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+                                                        if (m) iso = `${m[3]}-${m[2]}-${m[1]}`;
+                                                    }
+                                                    const cshift = String(c.shift || '').toUpperCase();
+                                                    const coperator = normalizeName(c.operator || '');
+                                                    return iso === recordDate && cshift === operatorShift && coperator === normalized;
+                                                });
+                                                
                                                 return {
                                                     Date: r.date || '-',
                                                     Name: r.name || '-',
@@ -4222,14 +4246,13 @@ return (
                                                     Shift: operator?.shift || '-',
                                                     Direction: r.direction || '-',
                                                     DateTime: r.dateTime || '-',
-                                                    Notes: r.notes || '-',
-                                                    Platform: r.platform || '-',
-                                                    Location: r.location || '-'
+                                                    Submitted: hasChecklist ? 'Yes' : '-',
+                                                    Missing: (!hasChecklist && r.direction === 'In') ? 'Yes' : '-'
                                                 };
                                             });
                                             
                                             const ws = XLSX.utils.json_to_sheet(exportData);
-                                            ws['!cols'] = [{wch:12},{wch:25},{wch:20},{wch:8},{wch:10},{wch:20},{wch:15},{wch:12},{wch:15}];
+                                            ws['!cols'] = [{wch:12},{wch:25},{wch:20},{wch:8},{wch:10},{wch:20},{wch:12},{wch:12}];
                                             const wb = XLSX.utils.book_new();
                                             XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
                                             XLSX.writeFile(wb, `Attendance_Records_${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -4317,9 +4340,8 @@ return (
                                                 <th style={{width:'80px'}}>Shift</th>
                                                 <th style={{width:'100px'}}>Direction</th>
                                                 <th style={{width:'150px'}}>DateTime</th>
-                                                <th style={{width:'150px'}}>Notes</th>
-                                                <th style={{width:'100px'}}>Platform</th>
-                                                <th style={{width:'120px'}}>Location</th>
+                                                <th style={{width:'120px'}}>Submitted</th>
+                                                <th style={{width:'120px'}}>Missing</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -4371,6 +4393,22 @@ return (
                                                     const normalized = normalizeName(record.name);
                                                     const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
                                                     
+                                                    // Check if checklist was submitted for this date/shift
+                                                    const recordDate = record.date;
+                                                    const operatorShift = (operator?.shift || '').toUpperCase();
+                                                    const hasChecklist = (dataManager.data.checklists || []).some(c => {
+                                                        const d = (c.date || '').toString().trim();
+                                                        let iso = '';
+                                                        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) iso = d;
+                                                        else {
+                                                            const m = d.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+                                                            if (m) iso = `${m[3]}-${m[2]}-${m[1]}`;
+                                                        }
+                                                        const cshift = String(c.shift || '').toUpperCase();
+                                                        const coperator = normalizeName(c.operator || '');
+                                                        return iso === recordDate && cshift === operatorShift && coperator === normalized;
+                                                    });
+                                                    
                                                     return (
                                                         <tr key={record.id || idx}>
                                                             <td>{record.date || '-'}</td>
@@ -4390,9 +4428,28 @@ return (
                                                                 </span>
                                                             </td>
                                                             <td style={{fontSize:'13px'}}>{record.dateTime || '-'}</td>
-                                                            <td style={{fontSize:'12px', color:'#7f8c8d'}}>{record.notes || '-'}</td>
-                                                            <td style={{fontSize:'12px'}}>{record.platform || '-'}</td>
-                                                            <td style={{fontSize:'12px'}}>{record.location || '-'}</td>
+                                                            <td>
+                                                                {hasChecklist ? (
+                                                                    <span style={{fontSize:'11px', fontWeight:700, color:'#27ae60', background:'#e8f5e9', padding:'3px 8px', borderRadius:'10px'}}>
+                                                                        ✅ Yes
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{fontSize:'11px', fontWeight:700, color:'#95a5a6', background:'#f5f5f5', padding:'3px 8px', borderRadius:'10px'}}>
+                                                                        -
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td>
+                                                                {!hasChecklist && record.direction === 'In' ? (
+                                                                    <span style={{fontSize:'11px', fontWeight:700, color:'#c62828', background:'#ffebee', padding:'3px 8px', borderRadius:'10px'}}>
+                                                                        🚨 Yes
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{fontSize:'11px', fontWeight:700, color:'#95a5a6', background:'#f5f5f5', padding:'3px 8px', borderRadius:'10px'}}>
+                                                                        -
+                                                                    </span>
+                                                                )}
+                                                            </td>
                                                         </tr>
                                                     );
                                                 });
