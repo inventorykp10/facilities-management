@@ -3642,29 +3642,33 @@ class DataManager {
 
 
             const calcForDate = (isoDate) => {
-                // Step 1: All Active Operators (Bankstown) - 브라우저에 직접 기록된 자료
-                const allOperators = operatorSet;
-
-                // Step 2: Submitted from Checklists (by date+shift)
-                const submitted = getSubmittedFromChecklists(isoDate, selectedShift);
-
-                // Step 3: Missing = All Operators - Submitted
-                const missing = [];
-                for (const n of allOperators) if (!submitted.has(n)) missing.push(n);
-                missing.sort();
-
-                // Step 4: (Optional) Present from Attendance for comparison only
+                // Step 1: Present from Attendance (출근한 오퍼레이터만)
                 const presentFromAttendance = getPresentFromAttendance(isoDate);
-                const attendanceComparison = intersectSets(presentFromAttendance, operatorSet);
+                
+                // Step 2: Present operators who are also in our operator list
+                const presentOperators = intersectSets(presentFromAttendance, operatorSet);
+
+                // Step 3: Submitted from Checklists (by date+shift)
+                const submitted = getSubmittedFromChecklists(isoDate, selectedShift);
+                
+                // Step 4: Filter submitted to only include those who are present
+                const submittedAndPresent = intersectSets(submitted, presentOperators);
+
+                // Step 5: Missing = Present Operators - Submitted
+                const missing = [];
+                for (const n of presentOperators) {
+                    if (!submitted.has(n)) missing.push(n);
+                }
+                missing.sort();
 
                 return {
                     date: isoDate,
-                    allOperatorsCount: allOperators.size,
-                    submittedCount: submitted.size,
+                    allOperatorsCount: presentOperators.size,  // 출근한 오퍼레이터 수
+                    submittedCount: submittedAndPresent.size,  // 출근자 중 제출한 수
                     missingCount: missing.length,
                     missing,
-                    submittedList: Array.from(submitted).sort(),
-                    attendanceCount: attendanceComparison.size  // 비교용
+                    submittedList: Array.from(submittedAndPresent).sort(),
+                    attendanceCount: presentFromAttendance.size  // 전체 출근자 (참고용)
                 };
             };
 
@@ -3711,7 +3715,7 @@ return (
                             {/* Row 2: Compact stat pills - clickable to toggle inline list */}
                             <div style={{display:'flex', gap:'10px', marginBottom:'0'}}>
                                 {[
-                                    {key:'ALL', label:'Total Operators', count: totalOperators, icon:'👥', bg:'#f0f7ff', border:'#d6e8f7', labelColor:'#5a7fa0'},
+                                    {key:'ALL', label:'Present Today', count: totalOperators, icon:'👥', bg:'#f0f7ff', border:'#d6e8f7', labelColor:'#5a7fa0'},
                                     {key:'SUBMITTED', label:'Submitted', count: submittedCount, icon:'✅', bg:'#f0faf0', border:'#c8e6c9', labelColor:'#388e3c'},
                                     {key:'MISSING', label:'Missing', count: missingCount, icon: missingCount > 0 ? '🚨' : '✅', bg: missingCount > 0 ? '#fff5f5' : '#f0faf0', border: missingCount > 0 ? '#ffcdd2' : '#c8e6c9', labelColor: missingCount > 0 ? '#c62828' : '#388e3c'}
                                 ].map(pill => (
@@ -3743,7 +3747,7 @@ return (
                                         <thead>
                                             <tr>
                                                 <th>Date</th>
-                                                <th>Total Operators</th>
+                                                <th>Present</th>
                                                 <th>Submitted</th>
                                                 <th>Missing</th>
                                             </tr>
@@ -3805,8 +3809,11 @@ return (
                                     listTitle = `Submitted (${names.length})`;
                                     listColor = '#27ae60';
                                 } else {
-                                    names = Array.from(operatorSet).sort();
-                                    listTitle = `All Operators (${names.length})`;
+                                    // Show only present operators for this date
+                                    const presentFromAttendance = getPresentFromAttendance(dateStat.date);
+                                    const presentOps = intersectSets(presentFromAttendance, operatorSet);
+                                    names = Array.from(presentOps).sort();
+                                    listTitle = `Present Today (${names.length})`;
                                     listColor = '#2c3e50';
                                 }
 
@@ -3910,9 +3917,11 @@ return (
                                 listTitle = `Submitted Operators (${names.length})`;
                                 listColor = '#27ae60';
                             } else {
-                                // ALL: Show all operators from Operator master
-                                names = Array.from(operatorSet).sort();
-                                listTitle = `All Operators (${names.length})`;
+                                // ALL: Show only present operators for this date
+                                const presentFromAttendance = getPresentFromAttendance(active.date);
+                                const presentOps = intersectSets(presentFromAttendance, operatorSet);
+                                names = Array.from(presentOps).sort();
+                                listTitle = `Present Today (${names.length})`;
                                 listColor = '#2c3e50';
                             }
 
