@@ -4208,14 +4208,48 @@ return (
                                 <div style={{padding:'20px', overflowY:'auto', flex:1}}>
                                     <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'15px'}}>
                                         <h3 style={{margin:0}}>Records ({(() => {
-                                            let filtered = attendanceRecords.filter(r => {
-                                                // 날짜가 없는 레코드 제외
-                                                if (!r.date || r.date.trim() === '') return false;
-                                                
-                                                const normalized = normalizeName(r.name);
-                                                const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                return operator !== undefined;
+                                            // 1. 모든 체크리스트 날짜 추출
+                                            const allChecklistDates = [...new Set((dataManager.data.checklists || []).map(c => {
+                                                const d = (c.date || '').toString().trim();
+                                                if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+                                                const m = d.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+                                                if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+                                                return null;
+                                            }).filter(d => d))].sort().reverse();
+                                            
+                                            // 2. 모든 Registered Operators
+                                            const allOperators = dataManager.getBankstownOperators();
+                                            
+                                            // 3. 각 날짜별로 모든 Operator에 대한 레코드 생성
+                                            let allRecords = [];
+                                            allChecklistDates.forEach(date => {
+                                                allOperators.forEach(operator => {
+                                                    const rollCallRecord = attendanceRecords.find(r => {
+                                                        return r.date === date && normalizeName(r.name) === normalizeName(operator.name);
+                                                    });
+                                                    
+                                                    if (rollCallRecord) {
+                                                        allRecords.push({
+                                                            date: date,
+                                                            name: operator.name,
+                                                            operator: operator,
+                                                            attendance: 'Present',
+                                                            direction: rollCallRecord.direction || 'In'
+                                                        });
+                                                    } else {
+                                                        allRecords.push({
+                                                            date: date,
+                                                            name: operator.name,
+                                                            operator: operator,
+                                                            attendance: 'Absent',
+                                                            direction: 'Absent'
+                                                        });
+                                                    }
+                                                });
                                             });
+                                            
+                                            // 4. 필터 적용
+                                            let filtered = allRecords;
                                             
                                             if (attSearchOperator.trim()) {
                                                 const searchLower = attSearchOperator.toLowerCase();
@@ -4224,16 +4258,12 @@ return (
                                             if (attSearchDepartment.trim()) {
                                                 const deptLower = attSearchDepartment.toLowerCase();
                                                 filtered = filtered.filter(r => {
-                                                    const normalized = normalizeName(r.name);
-                                                    const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                    return operator && (operator.department || '').toLowerCase().includes(deptLower);
+                                                    return r.operator && (r.operator.department || '').toLowerCase().includes(deptLower);
                                                 });
                                             }
                                             if (attSearchShift !== 'ALL') {
                                                 filtered = filtered.filter(r => {
-                                                    const normalized = normalizeName(r.name);
-                                                    const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                    const shift = operator?.shift || '';
+                                                    const shift = r.operator?.shift || '';
                                                     return shift.toUpperCase() === attSearchShift;
                                                 });
                                             }
@@ -4249,14 +4279,48 @@ return (
                                         <button 
                                             className="btn btn-success" 
                                             onClick={() => {
-                                                let filtered = attendanceRecords.filter(r => {
-                                                    // 날짜가 없는 레코드 제외
-                                                    if (!r.date || r.date.trim() === '') return false;
-                                                    
-                                                    const normalized = normalizeName(r.name);
-                                                    const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                    return operator !== undefined;
+                                                // 1. 모든 체크리스트 날짜 추출
+                                                const allChecklistDates = [...new Set((dataManager.data.checklists || []).map(c => {
+                                                    const d = (c.date || '').toString().trim();
+                                                    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+                                                    const m = d.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+                                                    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+                                                    return null;
+                                                }).filter(d => d))].sort().reverse();
+                                                
+                                                // 2. 모든 Registered Operators
+                                                const allOperators = dataManager.getBankstownOperators();
+                                                
+                                                // 3. 각 날짜별로 모든 Operator에 대한 레코드 생성
+                                                let allRecords = [];
+                                                allChecklistDates.forEach(date => {
+                                                    allOperators.forEach(operator => {
+                                                        const rollCallRecord = attendanceRecords.find(r => {
+                                                            return r.date === date && normalizeName(r.name) === normalizeName(operator.name);
+                                                        });
+                                                        
+                                                        if (rollCallRecord) {
+                                                            allRecords.push({
+                                                                date: date,
+                                                                name: operator.name,
+                                                                operator: operator,
+                                                                attendance: 'Present',
+                                                                direction: rollCallRecord.direction || 'In'
+                                                            });
+                                                        } else {
+                                                            allRecords.push({
+                                                                date: date,
+                                                                name: operator.name,
+                                                                operator: operator,
+                                                                attendance: 'Absent',
+                                                                direction: 'Absent'
+                                                            });
+                                                        }
+                                                    });
                                                 });
+                                                
+                                                // 4. 필터 적용
+                                                let filtered = allRecords;
                                                 
                                                 if (attSearchOperator.trim()) {
                                                     const searchLower = attSearchOperator.toLowerCase();
@@ -4265,16 +4329,12 @@ return (
                                                 if (attSearchDepartment.trim()) {
                                                     const deptLower = attSearchDepartment.toLowerCase();
                                                     filtered = filtered.filter(r => {
-                                                        const normalized = normalizeName(r.name);
-                                                        const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                        return operator && (operator.department || '').toLowerCase().includes(deptLower);
+                                                        return r.operator && (r.operator.department || '').toLowerCase().includes(deptLower);
                                                     });
                                                 }
                                                 if (attSearchShift !== 'ALL') {
                                                     filtered = filtered.filter(r => {
-                                                        const normalized = normalizeName(r.name);
-                                                        const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                        const shift = operator?.shift || '';
+                                                        const shift = r.operator?.shift || '';
                                                         return shift.toUpperCase() === attSearchShift;
                                                     });
                                                 }
@@ -4291,8 +4351,7 @@ return (
                                                 }
                                                 
                                                 const exportData = filtered.map(r => {
-                                                    const normalized = normalizeName(r.name);
-                                                    const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
+                                                    const operator = r.operator;
                                                     const recordDate = r.date;
                                                     const operatorShift = (operator?.shift || '').toUpperCase();
                                                     
@@ -4306,16 +4365,21 @@ return (
                                                         }
                                                         const cshift = String(c.shift || '').toUpperCase();
                                                         const coperator = normalizeName(c.operator || '');
-                                                        return iso === recordDate && cshift === operatorShift && coperator === normalized;
+                                                        return iso === recordDate && cshift === operatorShift && coperator === normalizeName(operator?.name || '');
                                                     });
+                                                    
+                                                    let status = 'N/A';
+                                                    if (r.attendance === 'Present') {
+                                                        status = hasChecklist ? 'Submitted' : 'Missing';
+                                                    }
                                                     
                                                     return {
                                                         Date: r.date || '-',
                                                         Name: r.name || '-',
                                                         Department: operator?.department || '-',
                                                         Shift: operator?.shift || '-',
-                                                        Attendance: (String(r.direction || '').toLowerCase() === 'absent' || String(r.direction || '').toLowerCase() === 'out') ? 'Absent' : 'Present',
-                                                        Status: hasChecklist ? 'Submitted' : (!hasChecklist && r.direction !== 'Absent' && r.direction !== 'Out') ? 'Missing' : '-'
+                                                        Attendance: r.attendance,
+                                                        Status: status
                                                     };
                                                 });
                                                 
@@ -4414,14 +4478,51 @@ return (
                                             </thead>
                                             <tbody>
                                                 {(() => {
-                                                    let filtered = attendanceRecords.filter(r => {
-                                                        // 날짜가 없는 레코드 제외
-                                                        if (!r.date || r.date.trim() === '') return false;
-                                                        
-                                                        const normalized = normalizeName(r.name);
-                                                        const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                        return operator !== undefined;
+                                                    // 1. 모든 체크리스트 날짜 추출
+                                                    const allChecklistDates = [...new Set((dataManager.data.checklists || []).map(c => {
+                                                        const d = (c.date || '').toString().trim();
+                                                        if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+                                                        const m = d.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+                                                        if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+                                                        return null;
+                                                    }).filter(d => d))].sort().reverse();
+                                                    
+                                                    // 2. 모든 Registered Operators
+                                                    const allOperators = dataManager.getBankstownOperators();
+                                                    
+                                                    // 3. 각 날짜별로 모든 Operator에 대한 레코드 생성
+                                                    let allRecords = [];
+                                                    allChecklistDates.forEach(date => {
+                                                        allOperators.forEach(operator => {
+                                                            // 해당 날짜에 이 Operator의 Roll call 기록이 있는지 확인
+                                                            const rollCallRecord = attendanceRecords.find(r => {
+                                                                return r.date === date && normalizeName(r.name) === normalizeName(operator.name);
+                                                            });
+                                                            
+                                                            if (rollCallRecord) {
+                                                                // Present: Roll call에 기록 있음
+                                                                allRecords.push({
+                                                                    date: date,
+                                                                    name: operator.name,
+                                                                    operator: operator,
+                                                                    attendance: 'Present',
+                                                                    direction: rollCallRecord.direction || 'In'
+                                                                });
+                                                            } else {
+                                                                // Absent: Roll call에 기록 없음
+                                                                allRecords.push({
+                                                                    date: date,
+                                                                    name: operator.name,
+                                                                    operator: operator,
+                                                                    attendance: 'Absent',
+                                                                    direction: 'Absent'
+                                                                });
+                                                            }
+                                                        });
                                                     });
+                                                    
+                                                    // 4. 필터 적용
+                                                    let filtered = allRecords;
                                                     
                                                     if (attSearchOperator.trim()) {
                                                         const searchLower = attSearchOperator.toLowerCase();
@@ -4430,16 +4531,12 @@ return (
                                                     if (attSearchDepartment.trim()) {
                                                         const deptLower = attSearchDepartment.toLowerCase();
                                                         filtered = filtered.filter(r => {
-                                                            const normalized = normalizeName(r.name);
-                                                            const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                            return operator && (operator.department || '').toLowerCase().includes(deptLower);
+                                                            return r.operator && (r.operator.department || '').toLowerCase().includes(deptLower);
                                                         });
                                                     }
                                                     if (attSearchShift !== 'ALL') {
                                                         filtered = filtered.filter(r => {
-                                                            const normalized = normalizeName(r.name);
-                                                            const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                            const shift = operator?.shift || '';
+                                                            const shift = r.operator?.shift || '';
                                                             return shift.toUpperCase() === attSearchShift;
                                                         });
                                                     }
@@ -4450,6 +4547,7 @@ return (
                                                         filtered = filtered.filter(r => r.date <= attSearchEndDate);
                                                     }
                                                     
+                                                    // 5. 정렬: 날짜 내림차순, 이름 오름차순
                                                     filtered.sort((a, b) => {
                                                         const dateCompare = (b.date || '').localeCompare(a.date || '');
                                                         if (dateCompare !== 0) return dateCompare;
@@ -4467,11 +4565,11 @@ return (
                                                     }
                                                     
                                                     return filtered.map((record, idx) => {
-                                                        const normalized = normalizeName(record.name);
-                                                        const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                        
+                                                        const operator = record.operator;
                                                         const recordDate = record.date;
                                                         const operatorShift = (operator?.shift || '').toUpperCase();
+                                                        
+                                                        // 체크리스트 제출 여부 확인
                                                         const hasChecklist = (dataManager.data.checklists || []).some(c => {
                                                             const d = (c.date || '').toString().trim();
                                                             let iso = '';
@@ -4482,39 +4580,34 @@ return (
                                                             }
                                                             const cshift = String(c.shift || '').toUpperCase();
                                                             const coperator = normalizeName(c.operator || '');
-                                                            return iso === recordDate && cshift === operatorShift && coperator === normalized;
+                                                            return iso === recordDate && cshift === operatorShift && coperator === normalizeName(operator?.name || '');
                                                         });
                                                         
-                                                        let statusLabel = '-';
+                                                        // Status 결정
+                                                        let statusLabel = 'N/A';
                                                         let statusColor = '#95a5a6';
                                                         let statusBg = '#f5f5f5';
                                                         
-                                                        const directionLower = String(record.direction || '').toLowerCase();
+                                                        // Attendance 상태
+                                                        let attendanceLabel = record.attendance;
+                                                        let attendanceColor = record.attendance === 'Present' ? '#27ae60' : '#e74c3c';
+                                                        let attendanceBg = record.attendance === 'Present' ? '#e8f5e9' : '#ffebee';
                                                         
-                                                        // Attendance 상태 결정: In/Present = Present, Absent = Absent
-                                                        let attendanceLabel = 'Present';
-                                                        let attendanceColor = '#27ae60';
-                                                        let attendanceBg = '#e8f5e9';
-                                                        
-                                                        if (directionLower === 'absent' || directionLower === 'out') {
-                                                            attendanceLabel = 'Absent';
-                                                            attendanceColor = '#95a5a6';
-                                                            attendanceBg = '#f5f5f5';
-                                                        }
-                                                        
-                                                        if (hasChecklist) {
-                                                            statusLabel = '✅ Submitted';
-                                                            statusColor = '#27ae60';
-                                                            statusBg = '#e8f5e9';
-                                                        } else if (directionLower === 'in' || directionLower === 'present' || directionLower === 'arrive' || directionLower.includes('in') || attendanceLabel === 'Present') {
-                                                            statusLabel = '🚨 Missing';
-                                                            statusColor = '#c62828';
-                                                            statusBg = '#ffebee';
+                                                        if (record.attendance === 'Present') {
+                                                            if (hasChecklist) {
+                                                                statusLabel = '✅ Submitted';
+                                                                statusColor = '#27ae60';
+                                                                statusBg = '#e8f5e9';
+                                                            } else {
+                                                                statusLabel = '🚨 Missing';
+                                                                statusColor = '#c62828';
+                                                                statusBg = '#ffebee';
+                                                            }
                                                         }
                                                         
                                                         return (
-                                                            <tr key={record.id || idx}>
-                                                                <td style={{fontWeight:600}}>{record.date || '-'}</td>
+                                                            <tr key={`${recordDate}-${operator?.id || idx}`}>
+                                                                <td style={{fontWeight:600}}>{recordDate || '-'}</td>
                                                                 <td style={{fontWeight:600}}>{record.name || '-'}</td>
                                                                 <td>{operator?.department || '-'}</td>
                                                                 <td>{operator?.shift || '-'}</td>
