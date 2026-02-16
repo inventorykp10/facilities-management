@@ -874,11 +874,17 @@ class DataManager {
             }
 
             addChecklist(checklist) {
-                const newChecklist = { ...checklist, id: Date.now() };
+                // 날짜별 로그 번호 생성
+                const dateStr = checklist.date;
+                const todayChecklists = this.data.checklists.filter(c => c.date === dateStr);
+                const nextNumber = (todayChecklists.length + 1).toString().padStart(3, '0');
+                const logNumber = `${dateStr}-${nextNumber}`;
+                
+                const newChecklist = { ...checklist, id: Date.now(), logNumber };
                 this.data.checklists.push(newChecklist);
                 this.pruneOldChecklists(31);
                 this.saveData('checklists');
-                this.addAuditLog('Add Checklist', `Added checklist for ${checklist.unitNo}`);
+                this.addAuditLog('Add Checklist', `Added checklist ${logNumber} for ${checklist.unitNo}`);
                 return newChecklist;
             }
 
@@ -1173,20 +1179,25 @@ class DataManager {
 
         // Dashboard - NO CHARTS, Activity & Alerts instead
         function Dashboard() {
+            // 오늘 날짜를 YYYY-MM-DD 형식으로 가져오기
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayStr = today.toISOString().split('T')[0];
+            
             const stats = {
                 totalForklifts: dataManager.data.forklifts.length,
                 activeForklifts: dataManager.data.forklifts.filter(f => f.status === 'Active').length,
                 maintenanceCount: dataManager.data.maintenance.filter(m => m.status !== 'Completed').length,
                 totalOperators: dataManager.getBankstownOperators().length,
                 activeOperators: dataManager.getBankstownOperators().filter(o => o.status === 'Active').length,
-                totalChecklists: dataManager.data.checklists.length
+                totalChecklists: dataManager.data.checklists.length,
+                todayChecklists: dataManager.data.checklists.filter(c => c.date === todayStr).length
             };
 
             const recentActivity = dataManager.data.auditLog.slice(0, 5);
             
             // Get expiring licenses (within 90 days)
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            // today 변수는 이미 위에서 선언됨
             
             const expiredLicenses = dataManager.getBankstownOperators().filter(o => {
                 if (!o.licenseExpiry) return false;
@@ -1252,11 +1263,11 @@ class DataManager {
 
                         <div className="stat-card">
                             <div className="stat-header">
-                                <span style={{fontSize: '13px', color: '#7f8c8d', fontWeight: 600, textTransform: 'uppercase'}}>Checklists</span>
-                                <div className="stat-icon" style={{background: '#e8f5e9', color: '#4caf50'}}>✅</div>
+                                <span style={{fontSize: '13px', color: '#7f8c8d', fontWeight: 600, textTransform: 'uppercase'}}>Today's Checklists</span>
+                                <div className="stat-icon" style={{background: '#e8f5e9', color: '#4caf50'}}>📋</div>
                             </div>
-                            <div className="stat-value">{stats.totalChecklists}</div>
-                            <div style={{fontSize: '12px', color: '#27ae60', fontWeight: 600}}>Total Records</div>
+                            <div className="stat-value">{stats.todayChecklists}</div>
+                            <div style={{fontSize: '12px', color: '#27ae60', fontWeight: 600}}>Total: {stats.totalChecklists}</div>
                         </div>
                     </div>
 
@@ -2627,6 +2638,7 @@ class DataManager {
                             <table className="data-table">
                                 <thead>
                                     <tr>
+                                        <th style={{width: '120px'}}>Log No</th>
                                         <th style={{width: '100px'}}>Date</th>
                                         <th style={{width: '90px'}}>Unit</th>
                                         <th style={{width: '150px'}}>Operator</th>
@@ -2641,6 +2653,7 @@ class DataManager {
                                 <tbody>
                                     {filteredChecklists.map(c => (
                                         <tr key={c.id} onDoubleClick={() => handleDoubleClick(c)} style={{cursor: 'pointer'}} title="Double-click to view full details">
+                                            <td><strong style={{color: '#3498db'}}>{c.logNumber || '-'}</strong></td>
                                             <td>{formatDateDMY(c.date)}</td>
                                             <td>{c.unitNo}</td>
                                             <td>{c.operator}</td>
@@ -2709,6 +2722,10 @@ class DataManager {
                             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
                                 <div>
                                     <h3 style={{color: '#2c3e50', marginBottom: '15px', borderBottom: '2px solid #3498db', paddingBottom: '8px'}}>Basic Information</h3>
+                                    <div style={{marginBottom: '12px'}}>
+                                        <strong style={{color: '#7f8c8d'}}>Log Number:</strong>
+                                        <div style={{marginTop: '4px', fontSize: '16px', color: '#3498db', fontWeight: 'bold'}}>{checklist.logNumber || '-'}</div>
+                                    </div>
                                     <div style={{marginBottom: '12px'}}>
                                         <strong style={{color: '#7f8c8d'}}>Date:</strong>
                                         <div style={{marginTop: '4px', fontSize: '15px'}}>{formatDateDMY(checklist.date) || '-'}</div>
