@@ -3733,7 +3733,11 @@ return (
                                     {key:'ALL', label:'Present Today', count: totalOperators, icon:'👥', bg:'#f0f7ff', border:'#d6e8f7', labelColor:'#5a7fa0'},
                                     {key:'SUBMITTED', label:'Submitted', count: submittedCount, icon:'✅', bg:'#f0faf0', border:'#c8e6c9', labelColor:'#388e3c'},
                                     {key:'MISSING', label:'Missing', count: missingCount, icon: missingCount > 0 ? '🚨' : '✅', bg: missingCount > 0 ? '#fff5f5' : '#f0faf0', border: missingCount > 0 ? '#ffcdd2' : '#c8e6c9', labelColor: missingCount > 0 ? '#c62828' : '#388e3c'},
-                                    {key:'ATTENDANCE', label:'Attendance', count: attendanceRecords.length, icon:'📋', bg:'#fef5e7', border:'#f9e79f', labelColor:'#d68910'}
+                                    {key:'ATTENDANCE', label:'Attendance', count: attendanceRecords.filter(r => {
+                                        const normalized = normalizeName(r.name);
+                                        const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
+                                        return operator !== undefined;
+                                    }).length, icon:'📋', bg:'#fef5e7', border:'#f9e79f', labelColor:'#d68910'}
                                 ].map(pill => (
                                     <div key={pill.key}
                                         onClick={() => {
@@ -4142,7 +4146,12 @@ return (
                             <div style={{padding:'15px 20px'}}>
                                 <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'15px'}}>
                                     <h3 style={{margin:0}}>Attendance Records ({(() => {
-                                        let filtered = attendanceRecords;
+                                        // First, filter to only show operators in the master list
+                                        let filtered = attendanceRecords.filter(r => {
+                                            const normalized = normalizeName(r.name);
+                                            const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
+                                            return operator !== undefined;
+                                        });
                                         
                                         // Filter by operator name
                                         if (attSearchOperator.trim()) {
@@ -4183,7 +4192,12 @@ return (
                                     <button 
                                         className="btn btn-success" 
                                         onClick={() => {
-                                            let filtered = attendanceRecords;
+                                            // First, filter to only show operators in the master list
+                                            let filtered = attendanceRecords.filter(r => {
+                                                const normalized = normalizeName(r.name);
+                                                const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
+                                                return operator !== undefined;
+                                            });
                                             
                                             // Apply same filters
                                             if (attSearchOperator.trim()) {
@@ -4346,7 +4360,12 @@ return (
                                         </thead>
                                         <tbody>
                                             {(() => {
-                                                let filtered = attendanceRecords;
+                                                // First, filter to only show operators in the master list
+                                                let filtered = attendanceRecords.filter(r => {
+                                                    const normalized = normalizeName(r.name);
+                                                    const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
+                                                    return operator !== undefined; // Only include if operator exists
+                                                });
                                                 
                                                 // Apply all filters
                                                 if (attSearchOperator.trim()) {
