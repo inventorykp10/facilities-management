@@ -3478,6 +3478,10 @@ class DataManager {
             const [attSearchStatus, setAttSearchStatus] = useState('ALL');
             const [attSearchStartDate, setAttSearchStartDate] = useState('');
             const [attSearchEndDate, setAttSearchEndDate] = useState('');
+            
+            // Operator edit modal
+            const [showOperatorEditModal, setShowOperatorEditModal] = useState(false);
+            const [editingOperator, setEditingOperator] = useState(null);
 
             useEffect(() => {
                 // keep range defaults aligned when start date changes
@@ -4290,7 +4294,9 @@ return (
                                                     });
                                                     
                                                     let status = 'N/A';
-                                                    if (r.attendance === 'Present') {
+                                                    if (r.operator?.status === 'Inactive') {
+                                                        status = 'Inactive';
+                                                    } else if (r.attendance === 'Present') {
                                                         status = hasChecklist ? 'Submitted' : 'Missing';
                                                     }
                                                     return status === attSearchStatus;
@@ -4384,7 +4390,9 @@ return (
                                                         });
                                                         
                                                         let status = 'N/A';
-                                                        if (r.attendance === 'Present') {
+                                                        if (r.operator?.status === 'Inactive') {
+                                                            status = 'Inactive';
+                                                        } else if (r.attendance === 'Present') {
                                                             status = hasChecklist ? 'Submitted' : 'Missing';
                                                         }
                                                         return status === attSearchStatus;
@@ -4421,7 +4429,9 @@ return (
                                                     });
                                                     
                                                     let status = 'N/A';
-                                                    if (r.attendance === 'Present') {
+                                                    if (r.operator?.status === 'Inactive') {
+                                                        status = 'Inactive';
+                                                    } else if (r.attendance === 'Present') {
                                                         status = hasChecklist ? 'Submitted' : 'Missing';
                                                     }
                                                     
@@ -4510,6 +4520,7 @@ return (
                                                 <option value="Submitted">Submitted</option>
                                                 <option value="Missing">Missing</option>
                                                 <option value="N/A">N/A</option>
+                                                <option value="Inactive">Inactive</option>
                                             </select>
                                         </div>
                                         <div style={{minWidth:'140px'}}>
@@ -4642,7 +4653,9 @@ return (
                                                             });
                                                             
                                                             let status = 'N/A';
-                                                            if (r.attendance === 'Present') {
+                                                            if (r.operator?.status === 'Inactive') {
+                                                                status = 'Inactive';
+                                                            } else if (r.attendance === 'Present') {
                                                                 status = hasChecklist ? 'Submitted' : 'Missing';
                                                             }
                                                             return status === attSearchStatus;
@@ -4701,7 +4714,12 @@ return (
                                                         let attendanceColor = record.attendance === 'Present' ? '#27ae60' : '#e74c3c';
                                                         let attendanceBg = record.attendance === 'Present' ? '#e8f5e9' : '#ffebee';
                                                         
-                                                        if (record.attendance === 'Present') {
+                                                        // Operator가 Inactive면 Status를 Inactive로 표시 (최우선)
+                                                        if (operator?.status === 'Inactive') {
+                                                            statusLabel = '🔒 Inactive';
+                                                            statusColor = '#7f8c8d';
+                                                            statusBg = '#ecf0f1';
+                                                        } else if (record.attendance === 'Present') {
                                                             if (hasChecklist) {
                                                                 statusLabel = '✅ Submitted';
                                                                 statusColor = '#27ae60';
