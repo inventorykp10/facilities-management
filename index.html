@@ -4216,6 +4216,104 @@ return (
                                     }} style={{background:'none', border:'none', fontSize:'24px', cursor:'pointer', color:'#95a5a6'}}>✕</button>
                                 </div>
                                 <div style={{padding:'20px', overflowY:'auto', flex:1}}>
+                                    {/* 장기 결근자 알림 배너 */}
+                                    {(() => {
+                                        // 모든 체크리스트 날짜 추출
+                                        const allChecklistDates = [...new Set((dataManager.data.checklists || []).map(c => {
+                                            const d = (c.date || '').toString().trim();
+                                            if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+                                            const m = d.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+                                            if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+                                            return null;
+                                        }).filter(d => d))].sort().reverse();
+                                        
+                                        if (allChecklistDates.length === 0) return null;
+                                        
+                                        const allOperators = dataManager.getBankstownOperators();
+                                        const longAbsentOperators = [];
+                                        
+                                        // 각 Operator의 연속 결근일 계산
+                                        allOperators.forEach(operator => {
+                                            if (operator.status === 'Inactive') return; // Inactive는 제외
+                                            
+                                            let consecutiveAbsent = 0;
+                                            const recentDates = allChecklistDates.slice(0, 28); // 최근 4주
+                                            
+                                            for (const date of recentDates) {
+                                                const rollCallRecord = attendanceRecords.find(r => {
+                                                    return r.date === date && normalizeName(r.name) === normalizeName(operator.name);
+                                                });
+                                                
+                                                if (!rollCallRecord) {
+                                                    consecutiveAbsent++;
+                                                } else {
+                                                    break; // 출근 기록이 있으면 연속 결근 중단
+                                                }
+                                            }
+                                            
+                                            if (consecutiveAbsent >= 10) { // 2주 (10 근무일)
+                                                longAbsentOperators.push({
+                                                    name: operator.name,
+                                                    days: consecutiveAbsent,
+                                                    level: consecutiveAbsent >= 20 ? 'critical' : 'warning' // 4주 (20 근무일)
+                                                });
+                                            }
+                                        });
+                                        
+                                        if (longAbsentOperators.length === 0) return null;
+                                        
+                                        const criticalCount = longAbsentOperators.filter(o => o.level === 'critical').length;
+                                        const warningCount = longAbsentOperators.filter(o => o.level === 'warning').length;
+                                        
+                                        return (
+                                            <div style={{
+                                                background: criticalCount > 0 ? '#ffebee' : '#fff3e0',
+                                                border: criticalCount > 0 ? '2px solid #e74c3c' : '2px solid #f39c12',
+                                                borderRadius: '8px',
+                                                padding: '15px',
+                                                marginBottom: '20px'
+                                            }}>
+                                                <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
+                                                    <span style={{fontSize:'24px'}}>{criticalCount > 0 ? '🔴' : '🟡'}</span>
+                                                    <div>
+                                                        <h4 style={{margin:0, color: criticalCount > 0 ? '#e74c3c' : '#f39c12'}}>
+                                                            장기 결근자 알림
+                                                        </h4>
+                                                        <p style={{margin:'5px 0 0 0', fontSize:'13px', color:'#555'}}>
+                                                            {criticalCount > 0 && `${criticalCount}명의 4주 이상 결근자`}
+                                                            {criticalCount > 0 && warningCount > 0 && ', '}
+                                                            {warningCount > 0 && `${warningCount}명의 2주 이상 결근자`}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
+                                                    {longAbsentOperators.map((op, idx) => (
+                                                        <button
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                setAttSearchOperator(op.name);
+                                                                setAttSearchAttendance('Absent');
+                                                            }}
+                                                            style={{
+                                                                padding:'6px 12px',
+                                                                background: op.level === 'critical' ? '#e74c3c' : '#f39c12',
+                                                                color:'white',
+                                                                border:'none',
+                                                                borderRadius:'6px',
+                                                                cursor:'pointer',
+                                                                fontSize:'12px',
+                                                                fontWeight:600
+                                                            }}
+                                                            title={`${op.days}일 연속 결근`}
+                                                        >
+                                                            {op.name} ({op.days}일)
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                    
                                     <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'15px'}}>
                                         <h3 style={{margin:0}}>Records ({(() => {
                                             // 1. 모든 체크리스트 날짜 추출
@@ -4885,7 +4983,8 @@ return (
                                                 dataManager.updateOperator(editingOperator.id, editingOperator);
                                                 setShowOperatorEditModal(false);
                                                 setEditingOperator(null);
-                                                window.location.reload();
+                                                // 페이지 새로고침 대신 모달만 닫기
+                                                // Attendance Records 모달은 열린 상태 유지
                                             }
                                         }}
                                         style={{padding:'10px 20px', background:'#3498db', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:600}}
