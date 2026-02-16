@@ -3737,7 +3737,13 @@ return (
                                     {key:'ATTENDANCE', label:'Attendance', count: attendanceRecords.filter(r => {
                                         const normalized = normalizeName(r.name);
                                         const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                        return operator !== undefined;
+                                        if (!operator) return false;
+                                        // 날짜 범위 필터링 추가
+                                        if (dateList.length === 1) {
+                                            return r.date === selectedDate;
+                                        } else {
+                                            return r.date >= selectedDate && r.date <= endDate;
+                                        }
                                     }).length, icon:'📋', bg:'#fef5e7', border:'#f9e79f', labelColor:'#d68910'}
                                 ].map(pill => (
                                     <div key={pill.key}
@@ -3782,7 +3788,13 @@ return (
                                         </thead>
                                         <tbody>
                                             {rangeStats.map(r => (
-                                                <tr key={r.date}>
+                                                <tr key={r.date}
+                                                    onDoubleClick={() => {
+                                                        setActiveDate(r.date);
+                                                        setListView('SUMMARY');
+                                                    }}
+                                                    style={{cursor: 'pointer'}}
+                                                    title="Double-click to view details">
                                                     <td><strong>{r.date}</strong></td>
                                                     <td>{r.allOperatorsCount}</td>
                                                     <td>{r.submittedCount}</td>
@@ -4267,8 +4279,8 @@ return (
                                                         Name: r.name || '-',
                                                         Department: operator?.department || '-',
                                                         Shift: operator?.shift || '-',
-                                                        Direction: r.direction || '-',
-                                                        Status: hasChecklist ? 'Submitted' : (!hasChecklist && r.direction === 'In') ? 'Missing' : '-'
+                                                        Attendance: (String(r.direction || '').toLowerCase() === 'absent' || String(r.direction || '').toLowerCase() === 'out') ? '결근' : '출근',
+                                                        Status: hasChecklist ? 'Submitted' : (!hasChecklist && r.direction !== 'Absent' && r.direction !== 'Out') ? 'Missing' : '-'
                                                     };
                                                 });
                                                 
@@ -4360,7 +4372,7 @@ return (
                                                     <th style={{width:'200px'}}>Name</th>
                                                     <th style={{width:'180px'}}>Department</th>
                                                     <th style={{width:'80px'}}>Shift</th>
-                                                    <th style={{width:'100px'}}>Direction</th>
+                                                    <th style={{width:'100px'}}>Attendance</th>
                                                     <th style={{width:'150px'}}>Status</th>
                                                 </tr>
                                             </thead>
@@ -4440,11 +4452,22 @@ return (
                                                         
                                                         const directionLower = String(record.direction || '').toLowerCase();
                                                         
+                                                        // Attendance 상태 결정: In/Present = 출근, Absent = 결근, 기타 = 출근으로 간주
+                                                        let attendanceLabel = '출근';
+                                                        let attendanceColor = '#27ae60';
+                                                        let attendanceBg = '#e8f5e9';
+                                                        
+                                                        if (directionLower === 'absent' || directionLower === 'out') {
+                                                            attendanceLabel = '결근';
+                                                            attendanceColor = '#95a5a6';
+                                                            attendanceBg = '#f5f5f5';
+                                                        }
+                                                        
                                                         if (hasChecklist) {
                                                             statusLabel = '✅ Submitted';
                                                             statusColor = '#27ae60';
                                                             statusBg = '#e8f5e9';
-                                                        } else if (directionLower === 'in' || directionLower === 'present' || directionLower === 'arrive' || directionLower.includes('in')) {
+                                                        } else if (directionLower === 'in' || directionLower === 'present' || directionLower === 'arrive' || directionLower.includes('in') || attendanceLabel === '출근') {
                                                             statusLabel = '🚨 Missing';
                                                             statusColor = '#c62828';
                                                             statusBg = '#ffebee';
@@ -4462,10 +4485,10 @@ return (
                                                                         fontWeight:700, 
                                                                         padding:'3px 8px', 
                                                                         borderRadius:'10px',
-                                                                        background: record.direction === 'In' ? '#e8f5e9' : record.direction === 'Out' ? '#fff3e0' : '#f5f5f5',
-                                                                        color: record.direction === 'In' ? '#27ae60' : record.direction === 'Out' ? '#f39c12' : '#7f8c8d'
+                                                                        background: attendanceBg,
+                                                                        color: attendanceColor
                                                                     }}>
-                                                                        {record.direction || '-'}
+                                                                        {attendanceLabel}
                                                                     </span>
                                                                 </td>
                                                                 <td>
