@@ -1556,13 +1556,6 @@ class DataManager {
                         </div>
 
                         <div className="search-filters">
-                            <div className="search-box">
-                                <span className="search-icon">🔍</span>
-                                <input type="text" placeholder="Search by Name, Department, Shift, License..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                                {searchTerm && (
-                                    <button onClick={() => setSearchTerm('')} style={{position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#95a5a6'}}>✕</button>
-                                )}
-                            </div>
                             <select className="filter-select" value={filterOperator} onChange={(e) => setFilterOperator(e.target.value)} style={{minWidth: '200px'}}>
                                 <option value="all">All Operators</option>
                                 {[...new Set(operators.map(o => o.name).filter(n => n && n.trim()))].sort().map(name => (
@@ -1581,8 +1574,8 @@ class DataManager {
                                     <option key={shift} value={shift}>{shift}</option>
                                 ))}
                             </select>
-                            {(searchTerm || filterOperator !== 'all' || filterDepartment !== 'all' || filterShift !== 'all') && (
-                                <button onClick={() => {setSearchTerm(''); setFilterOperator('all'); setFilterDepartment('all'); setFilterShift('all');}} className="btn btn-secondary" style={{padding: '8px 12px'}}>Clear</button>
+                            {(filterOperator !== 'all' || filterDepartment !== 'all' || filterShift !== 'all') && (
+                                <button onClick={() => {setFilterOperator('all'); setFilterDepartment('all'); setFilterShift('all');}} className="btn btn-secondary" style={{padding: '8px 12px'}}>Clear</button>
                             )}
                         </div>
 
@@ -4416,6 +4409,7 @@ return (
                                                     <th style={{width:'80px'}}>Shift</th>
                                                     <th style={{width:'100px'}}>Attendance</th>
                                                     <th style={{width:'150px'}}>Status</th>
+                                                    <th style={{width:'150px'}}>Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -4465,7 +4459,7 @@ return (
                                                     if (filtered.length === 0) {
                                                         return (
                                                             <tr>
-                                                                <td colSpan="6" style={{textAlign:'center', padding:'40px', color:'#95a5a6', fontStyle:'italic'}}>
+                                                                <td colSpan="7" style={{textAlign:'center', padding:'40px', color:'#95a5a6', fontStyle:'italic'}}>
                                                                     No attendance records found
                                                                 </td>
                                                             </tr>
@@ -4540,6 +4534,52 @@ return (
                                                                     <span style={{fontSize:'11px', fontWeight:700, color: statusColor, background: statusBg, padding:'3px 8px', borderRadius:'10px'}}>
                                                                         {statusLabel}
                                                                     </span>
+                                                                </td>
+                                                                <td>
+                                                                    <div style={{display:'flex', gap:'6px'}}>
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                if (operator) {
+                                                                                    setEditingOperator(operator);
+                                                                                    setShowModal(true);
+                                                                                }
+                                                                            }}
+                                                                            style={{
+                                                                                padding:'4px 10px',
+                                                                                background:'#3498db',
+                                                                                color:'white',
+                                                                                border:'none',
+                                                                                borderRadius:'4px',
+                                                                                cursor:'pointer',
+                                                                                fontSize:'11px',
+                                                                                fontWeight:600
+                                                                            }}
+                                                                            title="Edit Operator"
+                                                                        >
+                                                                            ✏️ Edit
+                                                                        </button>
+                                                                        <button 
+                                                                            onClick={() => {
+                                                                                if (operator && confirm(`Delete operator "${operator.name}"?\n\nThis will remove the operator from the system.`)) {
+                                                                                    dataManager.deleteOperator(operator.id);
+                                                                                    window.location.reload();
+                                                                                }
+                                                                            }}
+                                                                            style={{
+                                                                                padding:'4px 10px',
+                                                                                background:'#e74c3c',
+                                                                                color:'white',
+                                                                                border:'none',
+                                                                                borderRadius:'4px',
+                                                                                cursor:'pointer',
+                                                                                fontSize:'11px',
+                                                                                fontWeight:600
+                                                                            }}
+                                                                            title="Delete Operator"
+                                                                        >
+                                                                            🗑️ Delete
+                                                                        </button>
+                                                                    </div>
                                                                 </td>
                                                             </tr>
                                                         );
