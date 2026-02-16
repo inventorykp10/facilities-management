@@ -3435,8 +3435,11 @@ class DataManager {
             });
             const fileRef = useRef(null);
             
+            // Attendance modal
+            const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+            const [selectedAttendanceDate, setSelectedAttendanceDate] = useState('');
+            
             // Attendance search filters
-            const [showAttendanceView, setShowAttendanceView] = useState(false);
             const [attSearchOperator, setAttSearchOperator] = useState('');
             const [attSearchDepartment, setAttSearchDepartment] = useState('');
             const [attSearchShift, setAttSearchShift] = useState('ALL');
@@ -3730,31 +3733,17 @@ return (
                             {/* Row 2: Compact stat pills - clickable to toggle inline list */}
                             <div style={{display:'flex', gap:'10px', marginBottom:'0'}}>
                                 {[
-                                    {key:'ALL', label:'Present Today', count: totalOperators, icon:'👥', bg:'#f0f7ff', border:'#d6e8f7', labelColor:'#5a7fa0'},
                                     {key:'SUBMITTED', label:'Submitted', count: submittedCount, icon:'✅', bg:'#f0faf0', border:'#c8e6c9', labelColor:'#388e3c'},
-                                    {key:'MISSING', label:'Missing', count: missingCount, icon: missingCount > 0 ? '🚨' : '✅', bg: missingCount > 0 ? '#fff5f5' : '#f0faf0', border: missingCount > 0 ? '#ffcdd2' : '#c8e6c9', labelColor: missingCount > 0 ? '#c62828' : '#388e3c'},
-                                    {key:'ATTENDANCE', label:'Attendance', count: attendanceRecords.filter(r => {
-                                        const normalized = normalizeName(r.name);
-                                        const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                        return operator !== undefined;
-                                    }).length, icon:'📋', bg:'#fef5e7', border:'#f9e79f', labelColor:'#d68910'}
+                                    {key:'MISSING', label:'Missing', count: missingCount, icon: missingCount > 0 ? '🚨' : '✅', bg: missingCount > 0 ? '#fff5f5' : '#f0faf0', border: missingCount > 0 ? '#ffcdd2' : '#c8e6c9', labelColor: missingCount > 0 ? '#c62828' : '#388e3c'}
                                 ].map(pill => (
                                     <div key={pill.key}
-                                        onClick={() => {
-                                            if (pill.key === 'ATTENDANCE') {
-                                                setShowAttendanceView(!showAttendanceView);
-                                                setListView(null);
-                                            } else {
-                                                setShowAttendanceView(false);
-                                                setListView(listView === pill.key ? null : pill.key);
-                                            }
-                                        }}
+                                        onClick={() => setListView(listView === pill.key ? null : pill.key)}
                                         style={{
                                             flex:1, display:'flex', alignItems:'center', justifyContent:'space-between',
                                             padding:'10px 14px', 
-                                            background: (pill.key === 'ATTENDANCE' && showAttendanceView) || (pill.key !== 'ATTENDANCE' && listView === pill.key) ? pill.bg : '#fafafa',
+                                            background: listView === pill.key ? pill.bg : '#fafafa',
                                             borderRadius:'10px', cursor:'pointer',
-                                            border: ((pill.key === 'ATTENDANCE' && showAttendanceView) || (pill.key !== 'ATTENDANCE' && listView === pill.key)) ? `2px solid ${pill.border}` : '1px solid #e9ecef',
+                                            border: listView === pill.key ? `2px solid ${pill.border}` : '1px solid #e9ecef',
                                             transition:'all 0.15s', position:'relative'
                                         }}>
                                         <div>
@@ -3783,7 +3772,13 @@ return (
                                         </thead>
                                         <tbody>
                                             {rangeStats.map(r => (
-                                                <tr key={r.date}>
+                                                <tr key={r.date} 
+                                                    onDoubleClick={() => {
+                                                        setSelectedAttendanceDate(r.date);
+                                                        setShowAttendanceModal(true);
+                                                    }}
+                                                    style={{cursor: 'pointer'}}
+                                                    title="Double-click to view attendance details">
                                                     <td><strong>{r.date}</strong></td>
                                                     <td>{r.allOperatorsCount}</td>
                                                     <td>{r.submittedCount}</td>
@@ -4140,66 +4135,25 @@ return (
                         })()}
                     </div>
 
-                    {/* Attendance Records View */}
-                    {showAttendanceView && (
-                        <div className="table-card" style={{marginTop:'20px'}}>
-                            <div style={{padding:'15px 20px'}}>
-                                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'15px'}}>
-                                    <h3 style={{margin:0}}>Attendance Records ({(() => {
-                                        // First, filter to only show operators in the master list
-                                        let filtered = attendanceRecords.filter(r => {
-                                            const normalized = normalizeName(r.name);
-                                            const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                            return operator !== undefined;
-                                        });
-                                        
-                                        // Filter by operator name
-                                        if (attSearchOperator.trim()) {
-                                            const searchLower = attSearchOperator.toLowerCase();
-                                            filtered = filtered.filter(r => (r.name || '').toLowerCase().includes(searchLower));
-                                        }
-                                        
-                                        // Filter by department (from operator master)
-                                        if (attSearchDepartment.trim()) {
-                                            const deptLower = attSearchDepartment.toLowerCase();
-                                            filtered = filtered.filter(r => {
-                                                const normalized = normalizeName(r.name);
-                                                const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                return operator && (operator.department || '').toLowerCase().includes(deptLower);
-                                            });
-                                        }
-                                        
-                                        // Filter by shift (from operator master or attendance notes)
-                                        if (attSearchShift !== 'ALL') {
-                                            filtered = filtered.filter(r => {
-                                                const normalized = normalizeName(r.name);
-                                                const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                const shift = operator?.shift || '';
-                                                return shift.toUpperCase() === attSearchShift;
-                                            });
-                                        }
-                                        
-                                        // Filter by date range
-                                        if (attSearchStartDate) {
-                                            filtered = filtered.filter(r => r.date >= attSearchStartDate);
-                                        }
-                                        if (attSearchEndDate) {
-                                            filtered = filtered.filter(r => r.date <= attSearchEndDate);
-                                        }
-                                        
-                                        return filtered.length;
-                                    })()})</h3>
-                                    <button 
-                                        className="btn btn-success" 
-                                        onClick={() => {
-                                            // First, filter to only show operators in the master list
+                    {/* Attendance Records Modal */}
+                    {showAttendanceModal && (
+                        <div style={{position:'fixed', top:0, left:0, right:0, bottom:0, background:'rgba(0,0,0,0.5)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:9999}}>
+                            <div style={{background:'white', borderRadius:'12px', width:'90%', maxWidth:'1200px', maxHeight:'90vh', overflow:'hidden', display:'flex', flexDirection:'column'}}>
+                                <div style={{padding:'20px', borderBottom:'1px solid #e9ecef', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                                    <h2 style={{margin:0}}>Attendance Records - {selectedAttendanceDate}</h2>
+                                    <button onClick={() => setShowAttendanceModal(false)} style={{background:'none', border:'none', fontSize:'24px', cursor:'pointer', color:'#95a5a6'}}>✕</button>
+                                </div>
+                                <div style={{padding:'20px', overflowY:'auto', flex:1}}>
+                                    <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'15px'}}>
+                                        <h3 style={{margin:0}}>Records ({(() => {
+                                            // Filter for selected date only
                                             let filtered = attendanceRecords.filter(r => {
                                                 const normalized = normalizeName(r.name);
                                                 const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                return operator !== undefined;
+                                                return operator !== undefined && r.date === selectedAttendanceDate;
                                             });
                                             
-                                            // Apply same filters
+                                            // Apply search filters
                                             if (attSearchOperator.trim()) {
                                                 const searchLower = attSearchOperator.toLowerCase();
                                                 filtered = filtered.filter(r => (r.name || '').toLowerCase().includes(searchLower));
@@ -4220,154 +4174,18 @@ return (
                                                     return shift.toUpperCase() === attSearchShift;
                                                 });
                                             }
-                                            if (attSearchStartDate) {
-                                                filtered = filtered.filter(r => r.date >= attSearchStartDate);
-                                            }
-                                            if (attSearchEndDate) {
-                                                filtered = filtered.filter(r => r.date <= attSearchEndDate);
-                                            }
                                             
-                                            if (filtered.length === 0) {
-                                                alert('No data to export');
-                                                return;
-                                            }
-                                            
-                                            // Add department, shift, and compliance info
-                                            const exportData = filtered.map(r => {
-                                                const normalized = normalizeName(r.name);
-                                                const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                const recordDate = r.date;
-                                                const operatorShift = (operator?.shift || '').toUpperCase();
-                                                
-                                                // Check if checklist was submitted
-                                                const hasChecklist = (dataManager.data.checklists || []).some(c => {
-                                                    const d = (c.date || '').toString().trim();
-                                                    let iso = '';
-                                                    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) iso = d;
-                                                    else {
-                                                        const m = d.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-                                                        if (m) iso = `${m[3]}-${m[2]}-${m[1]}`;
-                                                    }
-                                                    const cshift = String(c.shift || '').toUpperCase();
-                                                    const coperator = normalizeName(c.operator || '');
-                                                    return iso === recordDate && cshift === operatorShift && coperator === normalized;
-                                                });
-                                                
-                                                return {
-                                                    Date: r.date || '-',
-                                                    Name: r.name || '-',
-                                                    Department: operator?.department || '-',
-                                                    Shift: operator?.shift || '-',
-                                                    Direction: r.direction || '-',
-                                                    DateTime: r.dateTime || '-',
-                                                    Submitted: hasChecklist ? 'Yes' : '-',
-                                                    Missing: (!hasChecklist && r.direction === 'In') ? 'Yes' : '-'
-                                                };
-                                            });
-                                            
-                                            const ws = XLSX.utils.json_to_sheet(exportData);
-                                            ws['!cols'] = [{wch:12},{wch:25},{wch:20},{wch:8},{wch:10},{wch:20},{wch:12},{wch:12}];
-                                            const wb = XLSX.utils.book_new();
-                                            XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
-                                            XLSX.writeFile(wb, `Attendance_Records_${new Date().toISOString().slice(0,10)}.xlsx`);
-                                        }}
-                                    >
-                                        📥 Export Filtered
-                                    </button>
-                                </div>
-                                
-                                {/* Search Filters */}
-                                <div style={{display:'flex', gap:'10px', marginBottom:'15px', flexWrap:'wrap', alignItems:'flex-end'}}>
-                                    <div style={{flex:'1', minWidth:'200px'}}>
-                                        <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#7f8c8d', marginBottom:'4px'}}>Operator Name</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="Search by name..." 
-                                            value={attSearchOperator}
-                                            onChange={(e) => setAttSearchOperator(e.target.value)}
-                                            style={{width:'100%', padding:'8px 12px', border:'1px solid #dfe6e9', borderRadius:'6px', fontSize:'13px'}}
-                                        />
-                                    </div>
-                                    <div style={{flex:'1', minWidth:'200px'}}>
-                                        <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#7f8c8d', marginBottom:'4px'}}>Department</label>
-                                        <input 
-                                            type="text" 
-                                            placeholder="Search by department..." 
-                                            value={attSearchDepartment}
-                                            onChange={(e) => setAttSearchDepartment(e.target.value)}
-                                            style={{width:'100%', padding:'8px 12px', border:'1px solid #dfe6e9', borderRadius:'6px', fontSize:'13px'}}
-                                        />
-                                    </div>
-                                    <div style={{minWidth:'120px'}}>
-                                        <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#7f8c8d', marginBottom:'4px'}}>Shift</label>
-                                        <select 
-                                            value={attSearchShift}
-                                            onChange={(e) => setAttSearchShift(e.target.value)}
-                                            style={{width:'100%', padding:'8px 12px', border:'1px solid #dfe6e9', borderRadius:'6px', fontSize:'13px', fontWeight:600}}
-                                        >
-                                            <option value="ALL">All</option>
-                                            <option value="AM">AM</option>
-                                            <option value="PM">PM</option>
-                                        </select>
-                                    </div>
-                                    <div style={{minWidth:'150px'}}>
-                                        <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#7f8c8d', marginBottom:'4px'}}>Start Date</label>
-                                        <input 
-                                            type="date" 
-                                            value={attSearchStartDate}
-                                            onChange={(e) => setAttSearchStartDate(e.target.value)}
-                                            style={{width:'100%', padding:'8px 12px', border:'1px solid #dfe6e9', borderRadius:'6px', fontSize:'13px'}}
-                                        />
-                                    </div>
-                                    <div style={{minWidth:'150px'}}>
-                                        <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#7f8c8d', marginBottom:'4px'}}>End Date</label>
-                                        <input 
-                                            type="date" 
-                                            value={attSearchEndDate}
-                                            onChange={(e) => setAttSearchEndDate(e.target.value)}
-                                            style={{width:'100%', padding:'8px 12px', border:'1px solid #dfe6e9', borderRadius:'6px', fontSize:'13px'}}
-                                        />
-                                    </div>
-                                    <button 
-                                        className="btn btn-secondary" 
-                                        onClick={() => {
-                                            setAttSearchOperator('');
-                                            setAttSearchDepartment('');
-                                            setAttSearchShift('ALL');
-                                            setAttSearchStartDate('');
-                                            setAttSearchEndDate('');
-                                        }}
-                                        style={{padding:'8px 16px', marginBottom:'0'}}
-                                    >
-                                        Clear Filters
-                                    </button>
-                                </div>
-                                
-                                {/* Attendance Table */}
-                                <div className="table-wrapper" style={{maxHeight:'60vh', overflowY:'auto'}}>
-                                    <table className="data-table">
-                                        <thead style={{position:'sticky', top:0, zIndex:1}}>
-                                            <tr>
-                                                <th style={{width:'100px'}}>Date</th>
-                                                <th style={{width:'200px'}}>Name</th>
-                                                <th style={{width:'150px'}}>Department</th>
-                                                <th style={{width:'80px'}}>Shift</th>
-                                                <th style={{width:'100px'}}>Direction</th>
-                                                <th style={{width:'150px'}}>DateTime</th>
-                                                <th style={{width:'120px'}}>Submitted</th>
-                                                <th style={{width:'120px'}}>Missing</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(() => {
-                                                // First, filter to only show operators in the master list
+                                            return filtered.length;
+                                        })()})</h3>
+                                        <button 
+                                            className="btn btn-success" 
+                                            onClick={() => {
                                                 let filtered = attendanceRecords.filter(r => {
                                                     const normalized = normalizeName(r.name);
                                                     const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                    return operator !== undefined; // Only include if operator exists
+                                                    return operator !== undefined && r.date === selectedAttendanceDate;
                                                 });
                                                 
-                                                // Apply all filters
                                                 if (attSearchOperator.trim()) {
                                                     const searchLower = attSearchOperator.toLowerCase();
                                                     filtered = filtered.filter(r => (r.name || '').toLowerCase().includes(searchLower));
@@ -4388,33 +4206,18 @@ return (
                                                         return shift.toUpperCase() === attSearchShift;
                                                     });
                                                 }
-                                                if (attSearchStartDate) {
-                                                    filtered = filtered.filter(r => r.date >= attSearchStartDate);
-                                                }
-                                                if (attSearchEndDate) {
-                                                    filtered = filtered.filter(r => r.date <= attSearchEndDate);
-                                                }
-                                                
-                                                // Sort by date descending
-                                                filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
                                                 
                                                 if (filtered.length === 0) {
-                                                    return (
-                                                        <tr>
-                                                            <td colSpan="9" style={{textAlign:'center', padding:'40px', color:'#95a5a6', fontStyle:'italic'}}>
-                                                                No attendance records found
-                                                            </td>
-                                                        </tr>
-                                                    );
+                                                    alert('No data to export');
+                                                    return;
                                                 }
                                                 
-                                                return filtered.map((record, idx) => {
-                                                    const normalized = normalizeName(record.name);
+                                                const exportData = filtered.map(r => {
+                                                    const normalized = normalizeName(r.name);
                                                     const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
-                                                    
-                                                    // Check if checklist was submitted for this date/shift
-                                                    const recordDate = record.date;
+                                                    const recordDate = r.date;
                                                     const operatorShift = (operator?.shift || '').toUpperCase();
+                                                    
                                                     const hasChecklist = (dataManager.data.checklists || []).some(c => {
                                                         const d = (c.date || '').toString().trim();
                                                         let iso = '';
@@ -4428,53 +4231,197 @@ return (
                                                         return iso === recordDate && cshift === operatorShift && coperator === normalized;
                                                     });
                                                     
-                                                    return (
-                                                        <tr key={record.id || idx}>
-                                                            <td>{record.date || '-'}</td>
-                                                            <td style={{fontWeight:600}}>{record.name || '-'}</td>
-                                                            <td>{operator?.department || '-'}</td>
-                                                            <td>{operator?.shift || '-'}</td>
-                                                            <td>
-                                                                <span style={{
-                                                                    fontSize:'11px', 
-                                                                    fontWeight:700, 
-                                                                    padding:'3px 8px', 
-                                                                    borderRadius:'10px',
-                                                                    background: record.direction === 'In' ? '#e8f5e9' : record.direction === 'Out' ? '#fff3e0' : '#f5f5f5',
-                                                                    color: record.direction === 'In' ? '#27ae60' : record.direction === 'Out' ? '#f39c12' : '#7f8c8d'
-                                                                }}>
-                                                                    {record.direction || '-'}
-                                                                </span>
-                                                            </td>
-                                                            <td style={{fontSize:'13px'}}>{record.dateTime || '-'}</td>
-                                                            <td>
-                                                                {hasChecklist ? (
-                                                                    <span style={{fontSize:'11px', fontWeight:700, color:'#27ae60', background:'#e8f5e9', padding:'3px 8px', borderRadius:'10px'}}>
-                                                                        ✅ Yes
-                                                                    </span>
-                                                                ) : (
-                                                                    <span style={{fontSize:'11px', fontWeight:700, color:'#95a5a6', background:'#f5f5f5', padding:'3px 8px', borderRadius:'10px'}}>
-                                                                        -
-                                                                    </span>
-                                                                )}
-                                                            </td>
-                                                            <td>
-                                                                {!hasChecklist && record.direction === 'In' ? (
-                                                                    <span style={{fontSize:'11px', fontWeight:700, color:'#c62828', background:'#ffebee', padding:'3px 8px', borderRadius:'10px'}}>
-                                                                        🚨 Yes
-                                                                    </span>
-                                                                ) : (
-                                                                    <span style={{fontSize:'11px', fontWeight:700, color:'#95a5a6', background:'#f5f5f5', padding:'3px 8px', borderRadius:'10px'}}>
-                                                                        -
-                                                                    </span>
-                                                                )}
-                                                            </td>
-                                                        </tr>
-                                                    );
+                                                    return {
+                                                        Date: r.date || '-',
+                                                        Name: r.name || '-',
+                                                        Department: operator?.department || '-',
+                                                        Shift: operator?.shift || '-',
+                                                        Direction: r.direction || '-',
+                                                        DateTime: r.dateTime || '-',
+                                                        Submitted: hasChecklist ? 'Yes' : '-',
+                                                        Missing: (!hasChecklist && r.direction === 'In') ? 'Yes' : '-'
+                                                    };
                                                 });
-                                            })()}
-                                        </tbody>
-                                    </table>
+                                                
+                                                const ws = XLSX.utils.json_to_sheet(exportData);
+                                                ws['!cols'] = [{wch:12},{wch:25},{wch:20},{wch:8},{wch:10},{wch:20},{wch:12},{wch:12}];
+                                                const wb = XLSX.utils.book_new();
+                                                XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+                                                XLSX.writeFile(wb, `Attendance_Records_${selectedAttendanceDate}.xlsx`);
+                                            }}
+                                        >
+                                            📥 Export
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Search Filters */}
+                                    <div style={{display:'flex', gap:'10px', marginBottom:'15px', flexWrap:'wrap', alignItems:'flex-end'}}>
+                                        <div style={{flex:'1', minWidth:'200px'}}>
+                                            <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#7f8c8d', marginBottom:'4px'}}>Operator Name</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Search by name..." 
+                                                value={attSearchOperator}
+                                                onChange={(e) => setAttSearchOperator(e.target.value)}
+                                                style={{width:'100%', padding:'8px 12px', border:'1px solid #dfe6e9', borderRadius:'6px', fontSize:'13px'}}
+                                            />
+                                        </div>
+                                        <div style={{flex:'1', minWidth:'200px'}}>
+                                            <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#7f8c8d', marginBottom:'4px'}}>Department</label>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Search by department..." 
+                                                value={attSearchDepartment}
+                                                onChange={(e) => setAttSearchDepartment(e.target.value)}
+                                                style={{width:'100%', padding:'8px 12px', border:'1px solid #dfe6e9', borderRadius:'6px', fontSize:'13px'}}
+                                            />
+                                        </div>
+                                        <div style={{minWidth:'120px'}}>
+                                            <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#7f8c8d', marginBottom:'4px'}}>Shift</label>
+                                            <select 
+                                                value={attSearchShift}
+                                                onChange={(e) => setAttSearchShift(e.target.value)}
+                                                style={{width:'100%', padding:'8px 12px', border:'1px solid #dfe6e9', borderRadius:'6px', fontSize:'13px', fontWeight:600}}
+                                            >
+                                                <option value="ALL">All</option>
+                                                <option value="AM">AM</option>
+                                                <option value="PM">PM</option>
+                                            </select>
+                                        </div>
+                                        <button 
+                                            className="btn btn-secondary" 
+                                            onClick={() => {
+                                                setAttSearchOperator('');
+                                                setAttSearchDepartment('');
+                                                setAttSearchShift('ALL');
+                                            }}
+                                            style={{padding:'8px 16px', marginBottom:'0'}}
+                                        >
+                                            Clear Filters
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Attendance Table */}
+                                    <div className="table-wrapper" style={{maxHeight:'50vh', overflowY:'auto'}}>
+                                        <table className="data-table">
+                                            <thead style={{position:'sticky', top:0, zIndex:1}}>
+                                                <tr>
+                                                    <th style={{width:'200px'}}>Name</th>
+                                                    <th style={{width:'150px'}}>Department</th>
+                                                    <th style={{width:'80px'}}>Shift</th>
+                                                    <th style={{width:'100px'}}>Direction</th>
+                                                    <th style={{width:'150px'}}>DateTime</th>
+                                                    <th style={{width:'120px'}}>Submitted</th>
+                                                    <th style={{width:'120px'}}>Missing</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {(() => {
+                                                    let filtered = attendanceRecords.filter(r => {
+                                                        const normalized = normalizeName(r.name);
+                                                        const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
+                                                        return operator !== undefined && r.date === selectedAttendanceDate;
+                                                    });
+                                                    
+                                                    if (attSearchOperator.trim()) {
+                                                        const searchLower = attSearchOperator.toLowerCase();
+                                                        filtered = filtered.filter(r => (r.name || '').toLowerCase().includes(searchLower));
+                                                    }
+                                                    if (attSearchDepartment.trim()) {
+                                                        const deptLower = attSearchDepartment.toLowerCase();
+                                                        filtered = filtered.filter(r => {
+                                                            const normalized = normalizeName(r.name);
+                                                            const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
+                                                            return operator && (operator.department || '').toLowerCase().includes(deptLower);
+                                                        });
+                                                    }
+                                                    if (attSearchShift !== 'ALL') {
+                                                        filtered = filtered.filter(r => {
+                                                            const normalized = normalizeName(r.name);
+                                                            const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
+                                                            const shift = operator?.shift || '';
+                                                            return shift.toUpperCase() === attSearchShift;
+                                                        });
+                                                    }
+                                                    
+                                                    filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+                                                    
+                                                    if (filtered.length === 0) {
+                                                        return (
+                                                            <tr>
+                                                                <td colSpan="7" style={{textAlign:'center', padding:'40px', color:'#95a5a6', fontStyle:'italic'}}>
+                                                                    No attendance records found
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    }
+                                                    
+                                                    return filtered.map((record, idx) => {
+                                                        const normalized = normalizeName(record.name);
+                                                        const operator = dataManager.getBankstownOperators().find(o => normalizeName(o.name) === normalized);
+                                                        
+                                                        const recordDate = record.date;
+                                                        const operatorShift = (operator?.shift || '').toUpperCase();
+                                                        const hasChecklist = (dataManager.data.checklists || []).some(c => {
+                                                            const d = (c.date || '').toString().trim();
+                                                            let iso = '';
+                                                            if (/^\d{4}-\d{2}-\d{2}$/.test(d)) iso = d;
+                                                            else {
+                                                                const m = d.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+                                                                if (m) iso = `${m[3]}-${m[2]}-${m[1]}`;
+                                                            }
+                                                            const cshift = String(c.shift || '').toUpperCase();
+                                                            const coperator = normalizeName(c.operator || '');
+                                                            return iso === recordDate && cshift === operatorShift && coperator === normalized;
+                                                        });
+                                                        
+                                                        return (
+                                                            <tr key={record.id || idx}>
+                                                                <td style={{fontWeight:600}}>{record.name || '-'}</td>
+                                                                <td>{operator?.department || '-'}</td>
+                                                                <td>{operator?.shift || '-'}</td>
+                                                                <td>
+                                                                    <span style={{
+                                                                        fontSize:'11px', 
+                                                                        fontWeight:700, 
+                                                                        padding:'3px 8px', 
+                                                                        borderRadius:'10px',
+                                                                        background: record.direction === 'In' ? '#e8f5e9' : record.direction === 'Out' ? '#fff3e0' : '#f5f5f5',
+                                                                        color: record.direction === 'In' ? '#27ae60' : record.direction === 'Out' ? '#f39c12' : '#7f8c8d'
+                                                                    }}>
+                                                                        {record.direction || '-'}
+                                                                    </span>
+                                                                </td>
+                                                                <td style={{fontSize:'13px'}}>{record.dateTime || '-'}</td>
+                                                                <td>
+                                                                    {hasChecklist ? (
+                                                                        <span style={{fontSize:'11px', fontWeight:700, color:'#27ae60', background:'#e8f5e9', padding:'3px 8px', borderRadius:'10px'}}>
+                                                                            ✅ Yes
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span style={{fontSize:'11px', fontWeight:700, color:'#95a5a6', background:'#f5f5f5', padding:'3px 8px', borderRadius:'10px'}}>
+                                                                            -
+                                                                        </span>
+                                                                    )}
+                                                                </td>
+                                                                <td>
+                                                                    {!hasChecklist && record.direction === 'In' ? (
+                                                                        <span style={{fontSize:'11px', fontWeight:700, color:'#c62828', background:'#ffebee', padding:'3px 8px', borderRadius:'10px'}}>
+                                                                            🚨 Yes
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span style={{fontSize:'11px', fontWeight:700, color:'#95a5a6', background:'#f5f5f5', padding:'3px 8px', borderRadius:'10px'}}>
+                                                                            -
+                                                                        </span>
+                                                                    )}
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    });
+                                                })()}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>
