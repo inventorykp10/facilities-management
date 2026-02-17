@@ -3569,6 +3569,20 @@ class DataManager {
                     .replace(/\s+/g, ' ');
             };
 
+            // Smart name matching: matches if all words of the shorter name
+            // are contained within the longer name.
+            // e.g. "umair rafiq" vs "muhammad umair rafiq" → match
+            //      "dong hyun yoon" vs "ian dong hyun yoon" → match
+            const nameMatches = (nameA, nameB) => {
+                const a = normalizeName(nameA);
+                const b = normalizeName(nameB);
+                if (a === b) return true;
+                const wordsA = a.split(' ').filter(Boolean);
+                const wordsB = b.split(' ').filter(Boolean);
+                const [shorter, longer] = wordsA.length <= wordsB.length ? [wordsA, wordsB] : [wordsB, wordsA];
+                return shorter.every(w => longer.includes(w));
+            };
+
             const toISOFromRollCall = (dateTimeStr) => {
                 // Ex: "Thu, 05 Feb 06:34"  (no year)
                 if (!dateTimeStr) return '';
@@ -3682,11 +3696,28 @@ class DataManager {
             };
 
             const getPresentFromAttendance = (isoDate) => {
-                // Attendance has no shift. Present = not Absent and has DateTime.
-                const names = attendanceRecords
+                const operators = dataManager.getBankstownOperators();
+                // Get roll-call present records for this date
+                const rcPresent = attendanceRecords
                     .filter(r => r.date === isoDate && String(r.direction || '').toLowerCase() !== 'absent' && (r.dateTime || '').trim() !== '')
                     .map(r => normalizeName(r.name));
-                return new Set(names.filter(Boolean));
+                
+                // Map roll-call names → operator normalized names using smart matching
+                const matched = new Set();
+                for (const rcName of rcPresent) {
+                    // Try exact match first
+                    const opExact = operators.find(o => normalizeName(o.name) === rcName);
+                    if (opExact) {
+                        matched.add(normalizeName(opExact.name));
+                        continue;
+                    }
+                    // Try smart match
+                    const opSmart = operators.find(o => nameMatches(normalizeName(o.name), rcName));
+                    if (opSmart) {
+                        matched.add(normalizeName(opSmart.name));
+                    }
+                }
+                return matched;
             };
 
             const getSubmittedFromChecklists = (isoDate, shift) => {
@@ -4320,7 +4351,10 @@ return (
                                             
                                             for (const date of recentWorkingDates) {
                                                 const rollCallRecord = attendanceRecords.find(r => {
-                                                    return r.date === date && normalizeName(r.name) === normalizeName(operator.name);
+                                                    if (r.date !== date) return false;
+                                                    if (String(r.direction || '').toLowerCase() === 'absent') return false;
+                                                    if (!(r.dateTime || '').trim()) return false;
+                                                    return nameMatches(normalizeName(operator.name), normalizeName(r.name));
                                                 });
                                                 
                                                 if (!rollCallRecord) {
@@ -4412,7 +4446,7 @@ return (
                                             allChecklistDates.forEach(date => {
                                                 allOperators.forEach(operator => {
                                                     const rollCallRecord = attendanceRecords.find(r => {
-                                                        return r.date === date && normalizeName(r.name) === normalizeName(operator.name);
+                                                        return r.date === date && nameMatches(normalizeName(operator.name), normalizeName(r.name));
                                                     });
                                                     
                                                     if (rollCallRecord) {
@@ -4508,7 +4542,7 @@ return (
                                                 allChecklistDates.forEach(date => {
                                                     allOperators.forEach(operator => {
                                                         const rollCallRecord = attendanceRecords.find(r => {
-                                                            return r.date === date && normalizeName(r.name) === normalizeName(operator.name);
+                                                            return r.date === date && nameMatches(normalizeName(operator.name), normalizeName(r.name));
                                                         });
                                                         
                                                         if (rollCallRecord) {
@@ -4770,7 +4804,7 @@ return (
                                                         allOperators.forEach(operator => {
                                                             // 해당 날짜에 이 Operator의 Roll call 기록이 있는지 확인
                                                             const rollCallRecord = attendanceRecords.find(r => {
-                                                                return r.date === date && normalizeName(r.name) === normalizeName(operator.name);
+                                                                return r.date === date && nameMatches(normalizeName(operator.name), normalizeName(r.name));
                                                             });
                                                             
                                                             if (rollCallRecord) {
