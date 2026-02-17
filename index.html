@@ -2267,9 +2267,9 @@ class DataManager {
                 setShowModal(false);
                 setEditingRecord(null);
 
-                // Show email prompt only for new records
-                if (isNew) {
-                    setEmailPrompt(recordData);
+                // Show email prompt only for new Pending records
+                if (isNew && recordData.status === 'Pending') {
+                    setTimeout(() => setEmailPrompt(recordData), 100);
                 }
             };
 
