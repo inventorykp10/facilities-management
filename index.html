@@ -2188,7 +2188,8 @@ class DataManager {
 
         // MAINTENANCE - With Edit/Delete
         function Maintenance() {
-            const [records, setRecords] = useState(dataManager.data.maintenance);
+            const sortedByLogNo = (arr) => [...arr].sort((a, b) => (b.logNo || '').localeCompare(a.logNo || '', undefined, {numeric: true}));
+            const [records, setRecords] = useState(sortedByLogNo(dataManager.data.maintenance));
             const [showModal, setShowModal] = useState(false);
             const [editingRecord, setEditingRecord] = useState(null);
             const [showDetailModal, setShowDetailModal] = useState(false);
@@ -2250,7 +2251,7 @@ class DataManager {
             const handleDelete = (id) => {
                 if (confirm('Are you sure you want to delete this maintenance record?')) {
                     dataManager.deleteMaintenance(id);
-                    setRecords([...dataManager.data.maintenance]);
+                    setRecords(sortedByLogNo(dataManager.data.maintenance));
                 }
             };
 
@@ -2263,7 +2264,7 @@ class DataManager {
                 } else {
                     dataManager.addMaintenance(recordData);
                 }
-                setRecords([...dataManager.data.maintenance]);
+                setRecords(sortedByLogNo(dataManager.data.maintenance));
                 setShowModal(false);
                 setEditingRecord(null);
 
