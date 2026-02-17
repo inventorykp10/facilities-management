@@ -1404,33 +1404,50 @@ class DataManager {
                 const fullName = normalizeText(getFieldCI(row, ['Full name', 'Full Name', 'Name'])) || normalizeText(`${firstName} ${lastName}`.trim());
 
                 const supervisor = normalizeText(getFieldCI(row, ['Supervisor', 'Manager', 'Team Leader', 'TL']));
-                const group = normalizeText(getFieldCI(row, ['Group', 'Team', 'Shift', 'Crew']));
+                const group = normalizeText(getFieldCI(row, ['Group', 'Team', 'Crew']));
                 const department = normalizeText(getFieldCI(row, ['Department', 'Dept']));
+                const shift = normalizeText(getFieldCI(row, ['Shift']));
+                const agency = normalizeText(getFieldCI(row, ['Agency']));
+                const licenseNo = normalizeText(getFieldCI(row, ['LicenseNo', 'License No', 'License Number', 'Licence No']));
+                const classes = normalizeText(getFieldCI(row, ['Classes', 'Class', 'Forklift Class']));
 
                 const validFrom = toDMY(getFieldCI(row, ['Valid From', 'ValidFrom']));
+                const licenseExpiry = toDMY(getFieldCI(row, ['LicenseExpiry', 'License Expiry', 'Expiry', 'Expiry Date']));
                 const hireDate = toDMY(getFieldCI(row, ['Hire Date', 'HireDate', 'Start Date', 'StartDate']));
+                const assessmentDate = toDMY(getFieldCI(row, ['AssessmentDate', 'Assessment Date']));
 
                 const status = normalizeText(getFieldCI(row, ['Status'])) || 'Active';
+                const assessmentDone = normalizeText(getFieldCI(row, ['AssessmentDone', 'Assessment Done'])) || 'Yes';
+                const assessorName = normalizeText(getFieldCI(row, ['AssessorName', 'Assessor Name', 'Assessor'])) || 'Joshua Odowd / Rudy Djie';
+
+                const terminationDate = toDMY(getFieldCI(row, ['TerminationDate', 'Termination Date']));
+                const terminationReason = normalizeText(getFieldCI(row, ['TerminationReason', 'Termination Reason']));
+                const terminationDetail = normalizeText(getFieldCI(row, ['TerminationDetail', 'Termination Detail']));
+                const warning1 = normalizeText(getFieldCI(row, ['Warning1', 'Warning 1']));
+                const warning2 = normalizeText(getFieldCI(row, ['Warning2', 'Warning 2']));
+                const warning3 = normalizeText(getFieldCI(row, ['Warning3', 'Warning 3']));
 
                 return {
                     id: Date.now() + idx,
                     name: fullName || `Operator ${idx + 1}`,
-                    licenseNo: '',            // not provided by BundyPlus extract
+                    licenseNo: licenseNo || 'HRW',
                     department: department,
+                    shift: shift,
                     validFrom: validFrom,
-                    licenseExpiry: '',        // not provided
-                    classes: '',              // not provided
+                    licenseExpiry: licenseExpiry,
+                    classes: classes || 'LF',
                     hireDate: hireDate,
-                    assessmentDone: 'No',
-                    assessmentDate: '',
-                    assessorName: '',
+                    assessmentDone: assessmentDone,
+                    assessmentDate: assessmentDate,
+                    assessorName: assessorName,
                     status: status,
-                    terminationDate: '',
-                    terminationReason: '',
-                    terminationDetail: '',
-                    warning1: '',
-                    warning2: '',
-                    warning3: '',
+                    agency: agency,
+                    terminationDate: terminationDate,
+                    terminationReason: terminationReason,
+                    terminationDetail: terminationDetail,
+                    warning1: warning1,
+                    warning2: warning2,
+                    warning3: warning3,
                     licensePhoto: '',
                 };
             };
