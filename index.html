@@ -1874,6 +1874,15 @@ class DataManager {
             );
         }
 
+        // Auto-insert hyphens for DD-MM-YYYY text input
+        function autoHyphenDate(newVal, prevVal) {
+            if (newVal.length < (prevVal || '').length) return newVal;
+            const digits = newVal.replace(/\D/g, '');
+            if (digits.length <= 2) return digits;
+            if (digits.length <= 4) return digits.slice(0,2) + '-' + digits.slice(2);
+            return digits.slice(0,2) + '-' + digits.slice(2,4) + '-' + digits.slice(4,8);
+        }
+
         function OperatorModal({ operator, onSave, onClose }) {
             const [formData, setFormData] = useState(operator || {
                 name: '',
@@ -1985,18 +1994,18 @@ class DataManager {
                                 <div className="form-row">
                                     <div className="form-field">
                                         <label>Valid From (DD-MM-YYYY)</label>
-                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.validFrom} onChange={(e) => setFormData({...formData, validFrom: e.target.value})} />
+                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.validFrom} onChange={(e) => setFormData({...formData, validFrom: autoHyphenDate(e.target.value, formData.validFrom)})} maxLength={10} />
                                     </div>
                                     <div className="form-field">
                                         <label>License Expiry (DD-MM-YYYY)</label>
-                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.licenseExpiry} onChange={(e) => setFormData({...formData, licenseExpiry: e.target.value})} />
+                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.licenseExpiry} onChange={(e) => setFormData({...formData, licenseExpiry: autoHyphenDate(e.target.value, formData.licenseExpiry)})} maxLength={10} />
                                     </div>
                                 </div>
 
                                 <div className="form-row">
                                     <div className="form-field">
                                         <label>Hire Date (DD-MM-YYYY)</label>
-                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.hireDate} onChange={(e) => setFormData({...formData, hireDate: e.target.value})} />
+                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.hireDate} onChange={(e) => setFormData({...formData, hireDate: autoHyphenDate(e.target.value, formData.hireDate)})} maxLength={10} />
                                     </div>
                                     <div className="form-field">
                                         <label>Status</label>
@@ -2017,7 +2026,7 @@ class DataManager {
                                     </div>
                                     <div className="form-field">
                                         <label>Assessment Date</label>
-                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.assessmentDate} onChange={(e) => setFormData({...formData, assessmentDate: e.target.value})} />
+                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.assessmentDate} onChange={(e) => setFormData({...formData, assessmentDate: autoHyphenDate(e.target.value, formData.assessmentDate)})} maxLength={10} />
                                     </div>
                                 </div>
 
@@ -2039,7 +2048,7 @@ class DataManager {
                                 <div className="form-row">
                                     <div className="form-field">
                                         <label>Termination Date</label>
-                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.terminationDate} onChange={(e) => setFormData({...formData, terminationDate: e.target.value})} />
+                                        <input type="text" placeholder="DD-MM-YYYY" value={formData.terminationDate} onChange={(e) => setFormData({...formData, terminationDate: autoHyphenDate(e.target.value, formData.terminationDate)})} maxLength={10} />
                                     </div>
                                     <div className="form-field">
                                         <label>Termination Reason</label>
@@ -2383,30 +2392,53 @@ class DataManager {
                 return `${year}-${String(nextNum).padStart(3, '0')}`;
             };
 
-            // Get current date in DD-MM-YYYY format
-            const getCurrentDate = () => {
-                const today = new Date();
-                const dd = String(today.getDate()).padStart(2, '0');
-                const mm = String(today.getMonth() + 1).padStart(2, '0');
-                const yyyy = today.getFullYear();
-                return `${dd}-${mm}-${yyyy}`;
+            // Get current date in ISO (YYYY-MM-DD) format for date input
+            const getCurrentDateISO = () => new Date().toISOString().split('T')[0];
+
+            // Convert DD-MM-YYYY to YYYY-MM-DD for date input
+            const dmyToISO = (dmy) => {
+                if (!dmy) return '';
+                const p = dmy.split('-');
+                if (p.length === 3 && p[2].length === 4) return `${p[2]}-${p[1]}-${p[0]}`;
+                if (p.length === 3 && p[0].length === 4) return dmy;
+                return '';
             };
 
-            const [formData, setFormData] = useState(record || {
-                logNo: record ? record.logNo : generateLogNo(),
-                unitNo: '',
-                dateReported: record ? record.dateReported : getCurrentDate(),
-                issue: '',
-                provider: 'Rentcorp',
-                status: 'Pending',
-                cost: 'Warranty',
-                reportedBy: '',
-                repairDetails: ''
+            // Convert YYYY-MM-DD to DD-MM-YYYY for storage
+            const isoToDMY = (iso) => {
+                if (!iso) return '';
+                const p = iso.split('-');
+                if (p.length === 3 && p[0].length === 4) return `${p[2]}-${p[1]}-${p[0]}`;
+                return iso;
+            };
+
+            const [formData, setFormData] = useState(() => {
+                const base = record ? {...record} : {
+                    logNo: generateLogNo(),
+                    unitNo: '',
+                    dateReported: '',
+                    issue: '',
+                    provider: 'Rentcorp',
+                    status: 'Pending',
+                    cost: 'Warranty',
+                    reportedBy: '',
+                    repairDetails: '',
+                    repairCompletionDate: ''
+                };
+                base._dateReportedISO = record ? dmyToISO(record.dateReported) : getCurrentDateISO();
+                base._completionDateISO = record ? dmyToISO(record.repairCompletionDate) : '';
+                return base;
             });
 
             const handleSubmit = (e) => {
                 e.preventDefault();
-                onSave(formData);
+                const saveData = {...formData};
+                // Convert ISO dates back to DD-MM-YYYY for storage
+                saveData.dateReported = isoToDMY(formData._dateReportedISO);
+                saveData.repairCompletionDate = isoToDMY(formData._completionDateISO);
+                delete saveData._dateReportedISO;
+                delete saveData._completionDateISO;
+                onSave(saveData);
             };
 
             // Get unique unit numbers from forklifts
@@ -2449,10 +2481,9 @@ class DataManager {
                                     <div className="form-field">
                                         <label>Date Reported *</label>
                                         <input 
-                                            type="text" 
-                                            placeholder="DD-MM-YYYY" 
-                                            value={formData.dateReported} 
-                                            onChange={(e) => setFormData({...formData, dateReported: e.target.value})} 
+                                            type="date"
+                                            value={formData._dateReportedISO}
+                                            onChange={(e) => setFormData({...formData, _dateReportedISO: e.target.value})}
                                             required
                                         />
                                     </div>
@@ -2506,7 +2537,12 @@ class DataManager {
                                         </select>
                                     </div>
                                     <div className="form-field">
-                                        {/* Empty space for alignment */}
+                                        <label>Completion Date</label>
+                                        <input
+                                            type="date"
+                                            value={formData._completionDateISO || ''}
+                                            onChange={(e) => setFormData({...formData, _completionDateISO: e.target.value})}
+                                        />
                                     </div>
                                 </div>
                                 <div className="form-field">
