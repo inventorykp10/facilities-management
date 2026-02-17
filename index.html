@@ -2278,27 +2278,14 @@ class DataManager {
                 const cc = 'jaesung@rentcorp.com.au';
                 const subject = encodeURIComponent(`Forklift Repair Request - ${record.logNo} - Unit ${record.unitNo}`);
                 const body = encodeURIComponent(
-                    `Dear Rentcorp Service Team,
-
-` +
-                    `Please be advised of the following forklift repair request:
-
-` +
-                    `Log No:    ${record.logNo}
-` +
-                    `Unit No:   ${record.unitNo}
-` +
-                    `Date:      ${record.dateReported}
-` +
-                    `Issue:     ${record.issue}
-
-` +
-                    `Please arrange for the repair at your earliest convenience.
-
-` +
-                    `Kind regards,
-` +
-                    `Samsung SDS Cello - Bankstown`
+                    `Hi Shal,\n\n` +
+                    `Please be advised of the following forklift repair request:\n\n` +
+                    `Log No:    ${record.logNo}\n` +
+                    `Unit No:   ${record.unitNo}\n` +
+                    `Date:      ${record.dateReported}\n` +
+                    `Issue:     ${record.issue}\n\n` +
+                    `Please arrange for the repair at your earliest convenience.\n\n` +
+                    `Best regards,`
                 );
                 window.location.href = `mailto:${to}?cc=${cc}&subject=${subject}&body=${body}`;
                 setEmailPrompt(null);
