@@ -3773,6 +3773,8 @@ class DataManager {
             
             // Attendance modal
             const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+            const [showSummaryModal, setShowSummaryModal] = useState(false);
+            const [summaryModalDate, setSummaryModalDate] = useState('');
             const [selectedAttendanceDate, setSelectedAttendanceDate] = useState('');
             
             // Attendance search filters
@@ -4163,22 +4165,30 @@ return (
                     {/* ══ PANEL: SUMMARY ══ */}
                     {activePill === 'summary' && (
                         <div className="table-card">
+                            {/* Header: filters + Open Full Summary button */}
                             <div style={{padding:'12px 18px',background:'#f8f9fa',borderBottom:'1px solid #e9ecef',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'10px'}}>
                                 <span style={{fontSize:'13px',fontWeight:700,color:'#2c3e50'}}>📅 Summary</span>
                                 <div style={{display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
                                     <label style={{fontSize:'11px',color:'#7f8c8d',fontWeight:600}}>From</label>
-                                    <input type="date" value={selectedDate} onChange={e=>{setSelectedDate(e.target.value);setListView('SUMMARY');}} style={{padding:'5px 8px',fontSize:'12px',border:'1px solid #dfe6e9',borderRadius:'6px'}} />
+                                    <input type="date" value={selectedDate} onChange={e=>setSelectedDate(e.target.value)} style={{padding:'5px 8px',fontSize:'12px',border:'1px solid #dfe6e9',borderRadius:'6px'}} />
                                     <label style={{fontSize:'11px',color:'#7f8c8d',fontWeight:600}}>To</label>
                                     <input type="date" value={endDate} onChange={e=>setEndDate(e.target.value)} style={{padding:'5px 8px',fontSize:'12px',border:'1px solid #dfe6e9',borderRadius:'6px'}} />
                                     <label style={{fontSize:'11px',color:'#7f8c8d',fontWeight:600}}>Shift</label>
                                     <select value={selectedShift} onChange={e=>setSelectedShift(e.target.value)} style={{padding:'5px 8px',fontSize:'12px',border:'1px solid #dfe6e9',borderRadius:'6px',fontWeight:600}}>
                                         <option value="ALL">All</option><option value="AM">AM</option><option value="PM">PM</option>
                                     </select>
+                                    <button className="btn btn-success"
+                                        onClick={() => { setSummaryModalDate(isRange ? activeDate : selectedDate); setShowSummaryModal(true); }}
+                                        style={{fontSize:'12px',padding:'5px 14px'}}>
+                                        📋 Open Full Summary
+                                    </button>
                                 </div>
                             </div>
+
+                            {/* Range table — always visible when isRange, double-click opens modal */}
                             {isRange && (
                                 <>
-                                    <div style={{padding:'10px 18px',background:'#f8f9fa',borderBottom:'1px solid #e9ecef',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                                    <div style={{padding:'10px 18px',background:'#f8f9fa',borderBottom:'1px solid #e9ecef'}}>
                                         <span style={{fontSize:'13px',fontWeight:700}}>Range Summary ({dateList.length} days)</span>
                                     </div>
                                     <div className="table-wrapper">
@@ -4191,9 +4201,9 @@ return (
                                             <tbody>
                                                 {rangeStats.map(r => (
                                                     <tr key={r.date}
-                                                        onDoubleClick={() => { setActiveDate(r.date); setListView('SUMMARY'); }}
-                                                        style={{cursor:'pointer', background: activeDate===r.date && listView==='SUMMARY' ? '#f0f7ff' : 'inherit'}}
-                                                        title="Double-click to view details">
+                                                        onDoubleClick={() => { setSummaryModalDate(r.date); setShowSummaryModal(true); }}
+                                                        style={{cursor:'pointer', background: summaryModalDate===r.date ? '#f0f7ff' : 'inherit'}}
+                                                        title="Double-click to view full details">
                                                         <td><strong>{r.date}</strong></td>
                                                         <td>{r.allOperatorsCount}</td>
                                                         <td>{r.submittedCount}</td>
@@ -4207,12 +4217,14 @@ return (
                                             </tbody>
                                         </table>
                                     </div>
-                                    <div style={{padding:'6px 16px 10px',fontSize:'11px',color:'#7f8c8d'}}>💡 더블클릭 → 해당 날짜 오퍼레이터 목록 펼침</div>
+                                    <div style={{padding:'6px 16px 10px',fontSize:'11px',color:'#7f8c8d'}}>💡 더블클릭 → Open Full Summary 모달로 해당 날짜 상세 보기</div>
                                 </>
                             )}
-                            {(listView === 'SUMMARY' || !isRange) && (() => {
-                                const targetDate = isRange ? activeDate : selectedDate;
-                                const dateCalc = isRange ? (rangeStats.find(r=>r.date===activeDate) || calcForDate(activeDate)) : active;
+
+                            {/* Single date: show operator table inline */}
+                            {!isRange && (() => {
+                                const targetDate = selectedDate;
+                                const dateCalc = active;
                                 const operatorMap = new Map();
                                 dataManager.getBankstownOperators().forEach(o => operatorMap.set(normalizeName(o.name||''), o));
                                 const checklistMap = new Map();
@@ -4233,33 +4245,6 @@ return (
                                     const sub=(dateCalc.submittedList||[]).includes(n);
                                     return {name:displayName(n),unit:cl.unitNo||'-',department:cl.department||op.department||'-',shift:cl.shift||op.shift||'-',status:sub?'Submitted':'Missing',normalized:n};
                                 });
-                                const exportToExcel = () => {
-                                    const exportType=prompt('Export Type:\n1. Single Date\n2. Date Range\n\nEnter 1 or 2:','1');
-                                    if(!exportType) return;
-                                    let exportDates=[];
-                                    if(exportType==='1') { const d=prompt('Enter Date (YYYY-MM-DD):',targetDate); if(!d) return; if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){alert('Invalid date format.');return;} exportDates=[d]; }
-                                    else if(exportType==='2') { const s=prompt('Start Date (YYYY-MM-DD):',selectedDate); if(!s) return; const e2=prompt('End Date (YYYY-MM-DD):',endDate); if(!e2) return; if(!/^\d{4}-\d{2}-\d{2}$/.test(s)||!/^\d{4}-\d{2}-\d{2}$/.test(e2)){alert('Invalid date format.');return;} exportDates=enumerateDates(s,e2); }
-                                    else { alert('Invalid selection.'); return; }
-                                    if(exportDates.length===0){alert('No dates selected.');return;}
-                                    const allData=[];
-                                    for(const date of exportDates){
-                                        const dc=calcForDate(date);
-                                        const opMap2=new Map(); dataManager.getBankstownOperators().forEach(o=>opMap2.set(normalizeName(o.name||''),o));
-                                        const clMap2=new Map();
-                                        (dataManager.data.checklists||[]).forEach(c=>{
-                                            const d2=(c.date||'').toString().trim(); let iso2='';
-                                            if(/^\d{4}-\d{2}-\d{2}$/.test(d2)) iso2=d2;
-                                            else{const m2=d2.match(/^(\d{2})-(\d{2})-(\d{4})$/);if(m2)iso2=`${m2[3]}-${m2[2]}-${m2[1]}`;}
-                                            if(iso2===date){const cshift=String(c.shift||'').toUpperCase();const wanted=selectedShift.toUpperCase();if(wanted==='ALL'||cshift===wanted){const key=normalizeName(c.operator||'');if(key)clMap2.set(key,c);}}
-                                        });
-                                        const names2=[...(dc.submittedList||[]),...(dc.missing||[])].sort();
-                                        for(const n of names2){const op2=opMap2.get(n)||{};const cl2=clMap2.get(n)||{};const sub2=(dc.submittedList||[]).includes(n);allData.push({Date:date,Operator:displayName(n),Unit:cl2.unitNo||'-',Department:cl2.department||op2.department||'-',Shift:cl2.shift||op2.shift||'-',Status:sub2?'Submitted':'Missing'});}
-                                    }
-                                    if(allData.length===0){alert('No data to export.');return;}
-                                    const ws=XLSX.utils.json_to_sheet(allData);ws['!cols']=[{wch:12},{wch:25},{wch:12},{wch:20},{wch:8},{wch:12}];
-                                    const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Summary');
-                                    XLSX.writeFile(wb,exportDates.length===1?`Compliance_Summary_${exportDates[0]}_${selectedShift}.xlsx`:`Compliance_Summary_${exportDates[0]}_to_${exportDates[exportDates.length-1]}_${selectedShift}.xlsx`);
-                                };
                                 return (
                                     <div style={{borderTop:'1px solid #e9ecef'}}>
                                         <div style={{padding:'10px 18px',background:'#f8f9fa',borderBottom:'1px solid #e9ecef',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'8px'}}>
@@ -4267,7 +4252,6 @@ return (
                                                 <span style={{fontSize:'13px',fontWeight:700,color:'#2c3e50'}}>Submitted: {dateCalc.submittedCount} / Missing: {dateCalc.missingCount}</span>
                                                 <span style={{fontSize:'11px',color:'#7f8c8d',background:'#e9ecef',padding:'2px 8px',borderRadius:'10px'}}>{targetDate} · {selectedShift}</span>
                                             </div>
-                                            <button onClick={exportToExcel} style={{padding:'5px 14px',fontSize:'12px',background:'#27ae60',color:'white',border:'none',borderRadius:'6px',cursor:'pointer',fontWeight:600}}>📥 Export Excel</button>
                                         </div>
                                         {rows.length===0 ? (<div style={{padding:'20px',textAlign:'center',color:'#7f8c8d'}}>No records found</div>) : (
                                             <div className="table-wrapper" style={{maxHeight:'50vh',overflowY:'auto'}}>
@@ -4290,12 +4274,127 @@ return (
                                                 </table>
                                             </div>
                                         )}
-                                        <div style={{padding:'6px 16px 10px',fontSize:'11px',color:'#7f8c8d'}}>💡 행 더블클릭 → Attendance 상세</div>
+                                        <div style={{padding:'6px 16px 10px',fontSize:'11px',color:'#7f8c8d'}}>💡 행 더블클릭 → Attendance 상세 &nbsp;|&nbsp; 상단 Open Full Summary → 전체 보기 모달</div>
                                     </div>
                                 );
                             })()}
                         </div>
                     )}
+
+                    {/* ══ FULL SUMMARY MODAL ══ */}
+                    {showSummaryModal && (() => {
+                        const modalDate = summaryModalDate || selectedDate;
+                        const dateCalc = calcForDate(modalDate);
+                        const operatorMap = new Map();
+                        dataManager.getBankstownOperators().forEach(o => operatorMap.set(normalizeName(o.name||''), o));
+                        const checklistMap = new Map();
+                        (dataManager.data.checklists||[]).forEach(c => {
+                            const d=(c.date||'').toString().trim(); let iso='';
+                            if(/^\d{4}-\d{2}-\d{2}$/.test(d)) iso=d;
+                            else { const m2=d.match(/^(\d{2})-(\d{2})-(\d{4})$/); if(m2) iso=`${m2[3]}-${m2[2]}-${m2[1]}`; }
+                            if(iso===modalDate) {
+                                const cshift=String(c.shift||'').toUpperCase();
+                                const wanted=selectedShift.toUpperCase();
+                                if(wanted==='ALL'||cshift===wanted) { const key=normalizeName(c.operator||''); if(key) checklistMap.set(key,c); }
+                            }
+                        });
+                        const allNames=[...(dateCalc.submittedList||[]),...(dateCalc.missing||[])].sort();
+                        const rows=allNames.map(n => {
+                            const op=operatorMap.get(n)||{};
+                            const cl=checklistMap.get(n)||{};
+                            const sub=(dateCalc.submittedList||[]).includes(n);
+                            return {name:displayName(n),unit:cl.unitNo||'-',department:cl.department||op.department||'-',shift:cl.shift||op.shift||'-',status:sub?'Submitted':'Missing',normalized:n};
+                        });
+
+                        // Navigate to prev/next date within range (or ±1 day for single)
+                        const navDates = isRange ? dateList : null;
+                        const currentIdx = navDates ? navDates.indexOf(modalDate) : -1;
+                        const prevDate = navDates && currentIdx > 0 ? navDates[currentIdx-1] : null;
+                        const nextDate = navDates && currentIdx < navDates.length-1 ? navDates[currentIdx+1] : null;
+
+                        const exportModal = () => {
+                            const allData=[];
+                            for(const n of allNames){
+                                const op=operatorMap.get(n)||{};const cl=checklistMap.get(n)||{};const sub=(dateCalc.submittedList||[]).includes(n);
+                                allData.push({Date:modalDate,Operator:displayName(n),Unit:cl.unitNo||'-',Department:cl.department||op.department||'-',Shift:cl.shift||op.shift||'-',Status:sub?'Submitted':'Missing'});
+                            }
+                            if(allData.length===0){alert('No data to export.');return;}
+                            const ws=XLSX.utils.json_to_sheet(allData);ws['!cols']=[{wch:12},{wch:25},{wch:12},{wch:20},{wch:8},{wch:12}];
+                            const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Summary');
+                            XLSX.writeFile(wb,`Compliance_Summary_${modalDate}_${selectedShift}.xlsx`);
+                        };
+
+                        return (
+                            <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}}>
+                                <div style={{background:'white',borderRadius:'12px',width:'95%',maxWidth:'900px',maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                                    {/* Modal header */}
+                                    <div style={{padding:'16px 20px',borderBottom:'1px solid #e9ecef',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#f8f9fa'}}>
+                                        <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+                                            <h2 style={{margin:0,fontSize:'18px'}}>📅 Full Summary</h2>
+                                            {/* Date navigation */}
+                                            <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                                                <button onClick={()=>prevDate&&setSummaryModalDate(prevDate)} disabled={!prevDate}
+                                                    style={{padding:'4px 10px',border:'1px solid #dfe6e9',borderRadius:'6px',background:prevDate?'white':'#f8f9fa',cursor:prevDate?'pointer':'default',color:prevDate?'#2c3e50':'#bdc3c7',fontWeight:600,fontSize:'13px'}}>‹ Prev</button>
+                                                <input type="date" value={modalDate} onChange={e=>setSummaryModalDate(e.target.value)}
+                                                    style={{padding:'4px 8px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px',fontWeight:600}} />
+                                                <button onClick={()=>nextDate&&setSummaryModalDate(nextDate)} disabled={!nextDate}
+                                                    style={{padding:'4px 10px',border:'1px solid #dfe6e9',borderRadius:'6px',background:nextDate?'white':'#f8f9fa',cursor:nextDate?'pointer':'default',color:nextDate?'#2c3e50':'#bdc3c7',fontWeight:600,fontSize:'13px'}}>Next ›</button>
+                                            </div>
+                                            <span style={{fontSize:'11px',color:'#7f8c8d',background:'#e9ecef',padding:'2px 8px',borderRadius:'10px'}}>{selectedShift}</span>
+                                        </div>
+                                        <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
+                                            <button onClick={exportModal} style={{padding:'6px 14px',fontSize:'12px',background:'#27ae60',color:'white',border:'none',borderRadius:'6px',cursor:'pointer',fontWeight:600}}>📥 Export Excel</button>
+                                            <button onClick={()=>setShowSummaryModal(false)} style={{background:'none',border:'none',fontSize:'24px',cursor:'pointer',color:'#95a5a6'}}>✕</button>
+                                        </div>
+                                    </div>
+                                    {/* Stat bar */}
+                                    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',padding:'12px 20px',borderBottom:'1px solid #e9ecef'}}>
+                                        {[
+                                            {label:'Present',   num:dateCalc.allOperatorsCount, bg:'#f0faf0',lc:'#2e7d32'},
+                                            {label:'Submitted', num:dateCalc.submittedCount,    bg:'#e3f2fd',lc:'#1565c0'},
+                                            {label:'Missing',   num:dateCalc.missingCount,      bg:'#ffebee',lc:'#c62828',nc:'#c62828'},
+                                            {label:'Checklists',num:dateCalc.checklistCount,    bg:'#f3e5f5',lc:'#7b1fa2',extra:dateCalc.checklistCount>dateCalc.submittedCount?`+${dateCalc.checklistCount-dateCalc.submittedCount} dup`:null}
+                                        ].map(s=>(
+                                            <div key={s.label} style={{padding:'10px 14px',borderRadius:'10px',background:s.bg}}>
+                                                <div style={{fontSize:'10px',fontWeight:700,textTransform:'uppercase',color:s.lc,marginBottom:'2px'}}>{s.label}</div>
+                                                <div style={{fontSize:'22px',fontWeight:800,color:s.nc||'#2c3e50',lineHeight:1}}>{s.num}</div>
+                                                {s.extra && <div style={{fontSize:'10px',color:'#8e24aa',fontWeight:600,marginTop:'2px'}}>{s.extra}</div>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {/* Operator table */}
+                                    <div style={{overflowY:'auto',flex:1}}>
+                                        {rows.length===0 ? (<div style={{padding:'40px',textAlign:'center',color:'#95a5a6',fontStyle:'italic'}}>No records found for {modalDate}</div>) : (
+                                            <table className="data-table" style={{fontSize:'13px',tableLayout:'fixed',width:'100%'}}>
+                                                <thead style={{position:'sticky',top:0,zIndex:1}}>
+                                                    <tr><th style={{width:'5%'}}>#</th><th style={{width:'27%'}}>Operator</th><th style={{width:'13%'}}>Unit</th><th style={{width:'27%'}}>Department</th><th style={{width:'10%'}}>Shift</th><th style={{width:'18%'}}>Status</th></tr>
+                                                </thead>
+                                                <tbody>
+                                                    {rows.map((r,i)=>(
+                                                        <tr key={r.normalized}
+                                                            onDoubleClick={()=>{setAttSearchStartDate(modalDate);setAttSearchEndDate(modalDate);setShowSummaryModal(false);setShowAttendanceModal(true);}}
+                                                            style={{cursor:'pointer'}} title="Double-click → Attendance 상세">
+                                                            <td style={{color:'#adb5bd'}}>{i+1}</td>
+                                                            <td style={{fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.name}</td>
+                                                            <td>{r.unit}</td>
+                                                            <td style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.department}</td>
+                                                            <td>{r.shift}</td>
+                                                            <td><span style={{fontSize:'11px',fontWeight:700,color:r.status==='Submitted'?'#27ae60':'#c62828',background:r.status==='Submitted'?'#e8f5e9':'#ffebee',padding:'3px 8px',borderRadius:'10px'}}>{r.status}</span></td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+                                    {navDates && (
+                                        <div style={{padding:'10px 20px',background:'#f8f9fa',borderTop:'1px solid #e9ecef',fontSize:'11px',color:'#7f8c8d',textAlign:'center'}}>
+                                            {currentIdx+1} / {navDates.length} days &nbsp;|&nbsp; ‹ Prev / Next › 로 날짜 이동 &nbsp;|&nbsp; 행 더블클릭 → Attendance 상세
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* ══ PANEL: SUBMISSION ══ */}
                     {activePill === 'submission' && (
