@@ -772,8 +772,6 @@ class DataManager {
                     checklists: this.loadData('checklists', []),
                     incidents: this.loadData('incidents', []),
                     auditLog: this.loadData('auditLog', []),
-                    plants: this.loadData('plants', []),
-                    serviceRecords: this.loadData('serviceRecords', []),
                     equipment: this.loadData('equipment', []),
                     training: this.loadData('training', [])
                 };
@@ -1212,8 +1210,6 @@ class DataManager {
                         {currentPage === 'equipment' && <EquipmentRegistry />}
                         {currentPage === 'eqmaintenance' && <EquipmentMaintenance />}
                         {currentPage === 'training' && <TrainingCompliance />}
-                        {currentPage === 'plants' && <Plants />}
-                        {currentPage === 'servicerecords' && <ServiceRecords />}
                         {currentPage === 'settings' && <Settings />}
                     </div>
                 </div>
@@ -1257,8 +1253,6 @@ class DataManager {
                 { id: 'equipment',      icon: '🏭', label: 'Equipment Registry' },
                 { id: 'eqmaintenance',  icon: '🔩', label: 'Eq. Maintenance' },
                 { id: 'training',       icon: '🎓', label: 'Training & Compliance' },
-                { id: 'plants',         icon: '📋', label: 'Plant Register' },
-                { id: 'servicerecords', icon: '📁', label: 'Service Records' },
             ];
             const sectionLabelStyle = {
                 fontSize: '10px', fontWeight: 700, textTransform: 'uppercase',
@@ -1494,18 +1488,7 @@ class DataManager {
                         {eqDueSoon.length>0&&(<div className="alert-item" style={{backgroundColor:'#fff3e0',borderLeft:'4px solid #ef6c00'}}><strong style={{color:'#ef6c00'}}>⚠️ EQUIPMENT:</strong> {eqDueSoon.length} equipment item(s) maintenance due within 30 days</div>)}
                         {trainingExpired.length>0&&(<div className="alert-item" style={{backgroundColor:'#fce4ec',borderLeft:'4px solid #e91e63'}}><strong style={{color:'#e91e63'}}>🎓 TRAINING:</strong> {trainingExpired.length} training record(s) EXPIRED</div>)}
                         {trainingExpiringSoon.length>0&&(<div className="alert-item" style={{backgroundColor:'#fff3e0',borderLeft:'4px solid #ef6c00'}}><strong style={{color:'#ef6c00'}}>⚠️ TRAINING:</strong> {trainingExpiringSoon.length} training record(s) expiring within 30 days</div>)}
-                        {(() => {
-                            const now=new Date();now.setHours(0,0,0,0);
-                            const overdue=(dataManager.data.plants||[]).filter(p=>{if(!p.nextServiceDate||p.status==='Inactive')return false;return new Date(p.nextServiceDate)<now;});
-                            const dueSoon=(dataManager.data.plants||[]).filter(p=>{if(!p.nextServiceDate||p.status==='Inactive')return false;const d=new Date(p.nextServiceDate);const diff=Math.floor((d-now)/MS);return diff>=0&&diff<=30;});
-                            const openBreakdowns=(dataManager.data.serviceRecords||[]).filter(r=>r.type==='Breakdown'&&r.status!=='Completed').length;
-                            return(<>
-                                {overdue.length>0&&(<div className="alert-item" style={{backgroundColor:'#ffebee',borderLeft:'4px solid #c62828'}}><strong style={{color:'#c62828'}}>🚨 PLANT:</strong> {overdue.length} plant item(s) service overdue — {overdue.map(p=>p.name).join(', ')}</div>)}
-                                {dueSoon.length>0&&(<div className="alert-item" style={{backgroundColor:'#fff3e0',borderLeft:'4px solid #ef6c00'}}><strong style={{color:'#ef6c00'}}>⚠️ PLANT:</strong> {dueSoon.length} plant item(s) service due within 30 days</div>)}
-                                {openBreakdowns>0&&(<div className="alert-item" style={{backgroundColor:'#fce4ec',borderLeft:'4px solid #e91e63'}}><strong style={{color:'#e91e63'}}>🔴 BREAKDOWN:</strong> {openBreakdowns} open breakdown(s) pending</div>)}
-                            </>);
-                        })()}
-                        {expiredLicenses.length===0&&expiringLicenses.length===0&&stats.maintenanceCount===0&&eqOverdue.length===0&&eqDueSoon.length===0&&trainingExpired.length===0&&(dataManager.data.plants||[]).every(p=>!p.nextServiceDate||new Date(p.nextServiceDate)>=new Date())&&(dataManager.data.serviceRecords||[]).filter(r=>r.type==='Breakdown'&&r.status!=='Completed').length===0&&(
+                        {expiredLicenses.length===0&&expiringLicenses.length===0&&stats.maintenanceCount===0&&eqOverdue.length===0&&eqDueSoon.length===0&&trainingExpired.length===0&&trainingExpiringSoon.length===0&&(
                             <div style={{color:'#27ae60'}}>✅ No alerts — All systems nominal</div>
                         )}
                     </div>
@@ -5634,6 +5617,7 @@ return (
                     'Serial No': e.serialNo||'-', 'Model No': e.modelNo||'-', Location: e.location||'-',
                     'Date of Commission': e.commissionDate||'-', 'Maintenance Schedule': e.maintenanceSchedule||'-',
                     'Last Maintenance': e.lastMaintenance||'-', 'Next Maintenance': e.nextMaintenance||'-',
+                    'Vendor': e.vendorName||'-', 'Vendor Contact': e.vendorContact||'-',
                     'RA Link': e.raLink||'-', 'SOP Link': e.sopLink||'-', Status: e.status||'-', Notes: e.notes||'-'
                 }));
                 const ws = XLSX.utils.json_to_sheet(rows);
@@ -5698,7 +5682,7 @@ return (
                                     <tr>
                                         <th>No.</th><th>Name</th><th>Category</th><th>Manufacturer</th><th>Serial No</th>
                                         <th>Commission Date</th><th>Maintenance Schedule</th><th>Next Maintenance</th>
-                                        <th>RA</th><th>SOP</th><th>Status</th><th>Actions</th>
+                                        <th>Vendor</th><th>RA</th><th>SOP</th><th>Status</th><th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -5715,13 +5699,14 @@ return (
                                                 <td style={{fontFamily:'monospace',fontSize:'12px'}}>{eq.serialNo||'-'}</td>
                                                 <td>{eq.commissionDate||'-'}</td>
                                                 <td>{eq.maintenanceSchedule||'-'}</td>
-                                                <td>
-                                                    {due?(
+                                                <td>{eq.nextMaintenance ? (
+                                                    due ? (
                                                         <span style={{fontSize:'11px',fontWeight:700,color:due.color,background:due.bg,padding:'3px 8px',borderRadius:'10px',display:'inline-block'}}>
                                                             {eq.nextMaintenance}<br/><span style={{fontSize:'10px'}}>{due.label}</span>
                                                         </span>
-                                                    ):(eq.nextMaintenance||'-')}
-                                                </td>
+                                                    ) : eq.nextMaintenance
+                                                ) : '-'}</td>
+                                                <td style={{fontSize:'12px'}}>{eq.vendorName||'-'}{eq.vendorContact?<><br/><span style={{color:'#7f8c8d'}}>{eq.vendorContact}</span></>:''}</td>
                                                 <td>
                                                     {eq.raLink?(<a href={eq.raLink} target="_blank" rel="noreferrer" style={{color:'#3498db',fontWeight:600,fontSize:'12px'}}>📄 RA</a>):(<span style={{color:'#bdc3c7',fontSize:'12px'}}>—</span>)}
                                                 </td>
@@ -5819,6 +5804,14 @@ return (
                                         <option value="Under Maintenance">Under Maintenance</option>
                                         <option value="Decommissioned">Decommissioned</option>
                                     </select>
+                                </div>
+                            </div>
+
+                            <div style={{borderTop:'1px solid #e9ecef',margin:'10px 0 14px',paddingTop:'14px'}}>
+                                <div style={{fontSize:'11px',fontWeight:700,textTransform:'uppercase',color:'#7f8c8d',marginBottom:'12px',letterSpacing:'0.6px'}}>🏢 Vendor / Service Provider</div>
+                                <div style={r2}>
+                                    <div><label style={ls}>Vendor / Company Name</label><input style={fs} value={form.vendorName||''} onChange={e=>set('vendorName',e.target.value)} placeholder="e.g. Acme Services Pty Ltd" /></div>
+                                    <div><label style={ls}>Vendor Contact</label><input style={fs} value={form.vendorContact||''} onChange={e=>set('vendorContact',e.target.value)} placeholder="Phone or email" /></div>
                                 </div>
                             </div>
 
@@ -6295,600 +6288,6 @@ return (
             );
         }
 
-        // ══════════════════════════════════════════
-        // FACILITIES — Plant Register
-        // ══════════════════════════════════════════
-        function Plants() {
-            const [plants, setPlants] = useState(dataManager.data.plants || []);
-            const [showModal, setShowModal] = useState(false);
-            const [editingPlant, setEditingPlant] = useState(null);
-            const [search, setSearch] = useState('');
-            const [filterStatus, setFilterStatus] = useState('ALL');
-            const [filterType, setFilterType] = useState('ALL');
-
-            const plantTypes = ['Forklift','Scissor Lift','Dock Leveller','Pallet Wrapper','HVAC','Fire Equipment','Electrical','Plumbing','Security','Cleaning Equipment','Other'];
-            const serviceIntervals = ['Monthly','Quarterly','6 Monthly','Annually','2 Yearly','As Required'];
-
-            const save = (plant) => {
-                const now = new Date(); now.setHours(0,0,0,0);
-                let list;
-                if (plant.id) {
-                    list = plants.map(p => p.id === plant.id ? plant : p);
-                } else {
-                    plant.id = Date.now();
-                    list = [...plants, plant];
-                }
-                dataManager.data.plants = list;
-                dataManager.saveData('plants');
-                dataManager.addAuditLog('Plant Register', `${plant.id ? 'Updated' : 'Added'} plant: ${plant.name}`);
-                setPlants(list);
-                setShowModal(false);
-                setEditingPlant(null);
-            };
-
-            const remove = (id) => {
-                if (!confirm('Delete this plant item?')) return;
-                const p = plants.find(x=>x.id===id);
-                const list = plants.filter(x => x.id !== id);
-                dataManager.data.plants = list;
-                dataManager.saveData('plants');
-                dataManager.addAuditLog('Plant Register', `Deleted plant: ${p?.name}`);
-                setPlants(list);
-            };
-
-            const today = new Date(); today.setHours(0,0,0,0);
-            const MS = 86400000;
-            const getDueStatus = (p) => {
-                if (!p.nextServiceDate || p.status === 'Inactive') return null;
-                const d = new Date(p.nextServiceDate); d.setHours(0,0,0,0);
-                const diff = Math.floor((d - today) / MS);
-                if (diff < 0)   return { label: `Overdue ${Math.abs(diff)}d`, color: '#c62828', bg: '#ffebee' };
-                if (diff <= 14) return { label: `Due in ${diff}d`, color: '#e65100', bg: '#fff3e0' };
-                if (diff <= 30) return { label: `Due in ${diff}d`, color: '#f57f17', bg: '#fffde7' };
-                return { label: `Due in ${diff}d`, color: '#2e7d32', bg: '#e8f5e9' };
-            };
-
-            const types = [...new Set(plants.map(p=>p.type).filter(Boolean))].sort();
-            const filtered = plants.filter(p => {
-                if (search && !`${p.name} ${p.location} ${p.vendor}`.toLowerCase().includes(search.toLowerCase())) return false;
-                if (filterStatus !== 'ALL' && p.status !== filterStatus) return false;
-                if (filterType !== 'ALL' && p.type !== filterType) return false;
-                return true;
-            });
-
-            const exportExcel = () => {
-                if (filtered.length === 0) { alert('No data to export.'); return; }
-                const rows = filtered.map(p => ({
-                    Name: p.name||'-', Type: p.type||'-', Location: p.location||'-',
-                    'Serial/ID': p.serialId||'-', Vendor: p.vendor||'-', 'Contact': p.vendorContact||'-',
-                    'Service Interval': p.serviceInterval||'-', 'Last Service': p.lastServiceDate||'-',
-                    'Next Service': p.nextServiceDate||'-', Status: p.status||'-', Notes: p.notes||'-'
-                }));
-                const ws = XLSX.utils.json_to_sheet(rows);
-                ws['!cols'] = [{wch:25},{wch:18},{wch:15},{wch:14},{wch:20},{wch:20},{wch:16},{wch:14},{wch:14},{wch:10},{wch:30}];
-                const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Plant Register');
-                XLSX.writeFile(wb, `Plant_Register_${new Date().toISOString().slice(0,10)}.xlsx`);
-            };
-
-            return (
-                <div>
-                    <div className="content-header">
-                        <div className="content-header-left">
-                            <h1>Plant Register <span className="v3-badge">V1</span></h1>
-                            <p>Facilities & Equipment — Service Schedule Management</p>
-                        </div>
-                        <div className="content-header-right">
-                            <button className="btn btn-success" onClick={()=>{setEditingPlant(null);setShowModal(true);}}>+ Add Plant</button>
-                            <button className="btn btn-secondary" onClick={exportExcel}>📥 Export Excel</button>
-                        </div>
-                    </div>
-
-                    {/* Summary pills */}
-                    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'12px',marginBottom:'16px'}}>
-                        {[
-                            {label:'Total Plant',    num:plants.length,                                                              bg:'#f0f7ff',lc:'#1565c0',icon:'🏭'},
-                            {label:'Active',         num:plants.filter(p=>p.status==='Active').length,                              bg:'#f0faf0',lc:'#2e7d32',icon:'✅'},
-                            {label:'Overdue Service',num:plants.filter(p=>{ if(!p.nextServiceDate||p.status==='Inactive')return false; return new Date(p.nextServiceDate)<today; }).length, bg:'#ffebee',lc:'#c62828',icon:'🚨'},
-                            {label:'Due ≤ 30 days',  num:plants.filter(p=>{ if(!p.nextServiceDate||p.status==='Inactive')return false; const d=new Date(p.nextServiceDate); const diff=Math.floor((d-today)/MS); return diff>=0&&diff<=30; }).length, bg:'#fff3e0',lc:'#e65100',icon:'⚠️'}
-                        ].map(s=>(
-                            <div key={s.label} style={{background:s.bg,borderRadius:'12px',border:'1.5px solid #e9ecef',padding:'14px 16px'}}>
-                                <div style={{fontSize:'10px',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.6px',color:s.lc,marginBottom:'4px'}}>{s.icon} {s.label}</div>
-                                <div style={{fontSize:'28px',fontWeight:800,color:'#2c3e50',lineHeight:1}}>{s.num}</div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="table-card">
-                        <div style={{padding:'12px 18px',background:'#f8f9fa',borderBottom:'1px solid #e9ecef',display:'flex',alignItems:'center',gap:'10px',flexWrap:'wrap'}}>
-                            <input placeholder="Search name, location, vendor…" value={search} onChange={e=>setSearch(e.target.value)}
-                                style={{padding:'7px 12px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px',width:'220px'}} />
-                            <select value={filterType} onChange={e=>setFilterType(e.target.value)}
-                                style={{padding:'7px 10px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px'}}>
-                                <option value="ALL">All Types</option>
-                                {plantTypes.map(t=><option key={t} value={t}>{t}</option>)}
-                            </select>
-                            <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}
-                                style={{padding:'7px 10px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px'}}>
-                                <option value="ALL">All Status</option>
-                                <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
-                            </select>
-                            {(search||filterType!=='ALL'||filterStatus!=='ALL') &&
-                                <button onClick={()=>{setSearch('');setFilterType('ALL');setFilterStatus('ALL');}}
-                                    style={{padding:'7px 12px',fontSize:'13px',background:'#ecf0f1',border:'none',borderRadius:'6px',cursor:'pointer'}}>Clear</button>
-                            }
-                            <span style={{marginLeft:'auto',fontSize:'12px',color:'#7f8c8d'}}>{filtered.length} item{filtered.length!==1?'s':''}</span>
-                        </div>
-                        <div style={{overflowX:'auto'}}>
-                            <table className="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>No.</th><th>Name</th><th>Type</th><th>Location</th>
-                                        <th>Service Interval</th><th>Last Service</th><th>Next Service</th>
-                                        <th>Vendor</th><th>Status</th><th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filtered.length === 0 ? (
-                                        <tr><td colSpan="10" style={{textAlign:'center',padding:'40px',color:'#95a5a6',fontStyle:'italic'}}>No plant items found. Click "+ Add Plant" to register equipment.</td></tr>
-                                    ) : filtered.map((p, i) => {
-                                        const due = getDueStatus(p);
-                                        return (
-                                            <tr key={p.id}>
-                                                <td style={{color:'#adb5bd',fontWeight:600}}>{i+1}</td>
-                                                <td style={{fontWeight:700}}>{p.name}</td>
-                                                <td><span style={{fontSize:'11px',background:'#e9ecef',padding:'2px 8px',borderRadius:'10px'}}>{p.type||'-'}</span></td>
-                                                <td>{p.location||'-'}</td>
-                                                <td>{p.serviceInterval||'-'}</td>
-                                                <td>{p.lastServiceDate||'-'}</td>
-                                                <td>
-                                                    {due ? (
-                                                        <span style={{fontSize:'11px',fontWeight:700,color:due.color,background:due.bg,padding:'3px 8px',borderRadius:'10px',display:'inline-block'}}>
-                                                            {p.nextServiceDate} <br/><span style={{fontSize:'10px'}}>{due.label}</span>
-                                                        </span>
-                                                    ) : (p.nextServiceDate||'-')}
-                                                </td>
-                                                <td>
-                                                    <div style={{fontSize:'12px'}}>{p.vendor||'-'}</div>
-                                                    {p.vendorContact && <div style={{fontSize:'11px',color:'#7f8c8d'}}>{p.vendorContact}</div>}
-                                                </td>
-                                                <td><span style={{fontSize:'11px',fontWeight:700,color:p.status==='Active'?'#27ae60':'#95a5a6',background:p.status==='Active'?'#e8f5e9':'#f5f5f5',padding:'3px 8px',borderRadius:'10px'}}>{p.status||'Active'}</span></td>
-                                                <td>
-                                                    <div style={{display:'flex',gap:'6px'}}>
-                                                        <button onClick={()=>{setEditingPlant(p);setShowModal(true);}}
-                                                            style={{padding:'4px 10px',fontSize:'12px',background:'#3498db',color:'white',border:'none',borderRadius:'5px',cursor:'pointer'}}>Edit</button>
-                                                        <button onClick={()=>remove(p.id)}
-                                                            style={{padding:'4px 10px',fontSize:'12px',background:'#e74c3c',color:'white',border:'none',borderRadius:'5px',cursor:'pointer'}}>Del</button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {/* Plant Modal */}
-                    {showModal && (
-                        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}}>
-                            <div style={{background:'white',borderRadius:'12px',width:'90%',maxWidth:'680px',maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}}>
-                                <div style={{padding:'20px',borderBottom:'1px solid #e9ecef',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                    <h2 style={{margin:0}}>{editingPlant ? 'Edit Plant Item' : 'Add Plant Item'}</h2>
-                                    <button onClick={()=>{setShowModal(false);setEditingPlant(null);}} style={{background:'none',border:'none',fontSize:'24px',cursor:'pointer',color:'#95a5a6'}}>✕</button>
-                                </div>
-                                <div style={{padding:'24px',overflowY:'auto',flex:1}}>
-                                    <PlantForm initial={editingPlant} plantTypes={plantTypes} serviceIntervals={serviceIntervals} onSave={save} onCancel={()=>{setShowModal(false);setEditingPlant(null);}} />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        function PlantForm({ initial, plantTypes, serviceIntervals, onSave, onCancel }) {
-            const [form, setForm] = useState({
-                name: '', type: '', location: '', serialId: '', vendor: '', vendorContact: '',
-                serviceInterval: '', lastServiceDate: '', nextServiceDate: '', status: 'Active', notes: '', ...initial
-            });
-            const set = (k,v) => setForm(f=>({...f,[k]:v}));
-
-            // Auto-calculate next service date when last date + interval changes
-            useEffect(() => {
-                if (!form.lastServiceDate || !form.serviceInterval) return;
-                const d = new Date(form.lastServiceDate);
-                if (isNaN(d)) return;
-                const intervalMap = { 'Monthly':1,'Quarterly':3,'6 Monthly':6,'Annually':12,'2 Yearly':24,'As Required':null };
-                const months = intervalMap[form.serviceInterval];
-                if (!months) return;
-                d.setMonth(d.getMonth() + months);
-                set('nextServiceDate', d.toISOString().slice(0,10));
-            }, [form.lastServiceDate, form.serviceInterval]);
-
-            const submit = () => {
-                if (!form.name.trim()) { alert('Plant name is required.'); return; }
-                onSave({...form});
-            };
-
-            const fieldStyle = {width:'100%',padding:'9px 12px',border:'1px solid #dfe6e9',borderRadius:'7px',fontSize:'13px',boxSizing:'border-box'};
-            const labelStyle = {display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'5px'};
-            const row2 = {display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px',marginBottom:'14px'};
-            const row3 = {display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'14px',marginBottom:'14px'};
-
-            return (
-                <div>
-                    <div style={{marginBottom:'14px'}}>
-                        <label style={labelStyle}>Plant Name *</label>
-                        <input style={fieldStyle} value={form.name} onChange={e=>set('name',e.target.value)} placeholder="e.g. Scissor Lift #1" />
-                    </div>
-                    <div style={row2}>
-                        <div>
-                            <label style={labelStyle}>Type</label>
-                            <select style={fieldStyle} value={form.type} onChange={e=>set('type',e.target.value)}>
-                                <option value="">Select type…</option>
-                                {plantTypes.map(t=><option key={t} value={t}>{t}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Location</label>
-                            <input style={fieldStyle} value={form.location} onChange={e=>set('location',e.target.value)} placeholder="e.g. Warehouse Bay 3" />
-                        </div>
-                    </div>
-                    <div style={row2}>
-                        <div>
-                            <label style={labelStyle}>Serial / Asset ID</label>
-                            <input style={fieldStyle} value={form.serialId} onChange={e=>set('serialId',e.target.value)} />
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Status</label>
-                            <select style={fieldStyle} value={form.status} onChange={e=>set('status',e.target.value)}>
-                                <option value="Active">Active</option>
-                                <option value="Inactive">Inactive</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style={row2}>
-                        <div>
-                            <label style={labelStyle}>Service Vendor / Company</label>
-                            <input style={fieldStyle} value={form.vendor} onChange={e=>set('vendor',e.target.value)} placeholder="e.g. Acme Services Pty Ltd" />
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Vendor Contact</label>
-                            <input style={fieldStyle} value={form.vendorContact} onChange={e=>set('vendorContact',e.target.value)} placeholder="Phone or email" />
-                        </div>
-                    </div>
-                    <div style={row3}>
-                        <div>
-                            <label style={labelStyle}>Service Interval</label>
-                            <select style={fieldStyle} value={form.serviceInterval} onChange={e=>set('serviceInterval',e.target.value)}>
-                                <option value="">Select…</option>
-                                {serviceIntervals.map(s=><option key={s} value={s}>{s}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Last Service Date</label>
-                            <input type="date" style={fieldStyle} value={form.lastServiceDate} onChange={e=>set('lastServiceDate',e.target.value)} />
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Next Service Date <span style={{color:'#3498db',fontSize:'10px'}}>(auto)</span></label>
-                            <input type="date" style={fieldStyle} value={form.nextServiceDate} onChange={e=>set('nextServiceDate',e.target.value)} />
-                        </div>
-                    </div>
-                    <div style={{marginBottom:'20px'}}>
-                        <label style={labelStyle}>Notes / Description</label>
-                        <textarea style={{...fieldStyle,height:'80px',resize:'vertical'}} value={form.notes} onChange={e=>set('notes',e.target.value)} placeholder="Additional notes about this equipment…" />
-                    </div>
-                    <div style={{display:'flex',gap:'10px',justifyContent:'flex-end'}}>
-                        <button onClick={onCancel} style={{padding:'10px 20px',background:'#95a5a6',color:'white',border:'none',borderRadius:'7px',cursor:'pointer',fontWeight:600}}>Cancel</button>
-                        <button onClick={submit} style={{padding:'10px 24px',background:'#27ae60',color:'white',border:'none',borderRadius:'7px',cursor:'pointer',fontWeight:600}}>Save</button>
-                    </div>
-                </div>
-            );
-        }
-
-        // ══════════════════════════════════════════
-        // FACILITIES — Service Records
-        // ══════════════════════════════════════════
-        function ServiceRecords() {
-            const [records, setRecords] = useState(dataManager.data.serviceRecords || []);
-            const [plants, setPlants]   = useState(dataManager.data.plants || []);
-            const [showModal, setShowModal] = useState(false);
-            const [editing, setEditing]    = useState(null);
-            const [search, setSearch]       = useState('');
-            const [filterType, setFilterType]     = useState('ALL');
-            const [filterStatus, setFilterStatus] = useState('ALL');
-            const [filterPlant, setFilterPlant]   = useState('ALL');
-            const [fromDate, setFromDate]   = useState('');
-            const [toDate, setToDate]       = useState('');
-
-            const save = (rec) => {
-                let list;
-                if (rec.id) {
-                    list = records.map(r => r.id === rec.id ? rec : r);
-                } else {
-                    rec.id = Date.now();
-                    rec.createdAt = new Date().toISOString().slice(0,10);
-                    list = [rec, ...records];
-                }
-                dataManager.data.serviceRecords = list;
-                dataManager.saveData('serviceRecords');
-
-                // If Scheduled + Completed → update plant lastServiceDate & auto-calc next
-                if (rec.type === 'Scheduled' && rec.status === 'Completed' && rec.plantId && rec.serviceDate) {
-                    const plant = (dataManager.data.plants||[]).find(p=>p.id===rec.plantId);
-                    if (plant) {
-                        plant.lastServiceDate = rec.serviceDate;
-                        const intervalMap = {'Monthly':1,'Quarterly':3,'6 Monthly':6,'Annually':12,'2 Yearly':24};
-                        const months = intervalMap[plant.serviceInterval];
-                        if (months) {
-                            const d = new Date(rec.serviceDate);
-                            d.setMonth(d.getMonth()+months);
-                            plant.nextServiceDate = d.toISOString().slice(0,10);
-                        }
-                        dataManager.saveData('plants');
-                        setPlants([...dataManager.data.plants]);
-                    }
-                }
-                dataManager.addAuditLog('Service Records', `${rec.id?'Updated':'Added'} service record for ${rec.plantName||rec.plantId}`);
-                setRecords(list);
-                setShowModal(false);
-                setEditing(null);
-            };
-
-            const remove = (id) => {
-                if (!confirm('Delete this service record?')) return;
-                const r = records.find(x=>x.id===id);
-                const list = records.filter(x=>x.id!==id);
-                dataManager.data.serviceRecords = list;
-                dataManager.saveData('serviceRecords');
-                dataManager.addAuditLog('Service Records', `Deleted record for ${r?.plantName}`);
-                setRecords(list);
-            };
-
-            const filtered = records.filter(r => {
-                if (search && !`${r.plantName} ${r.vendor} ${r.technician} ${r.description}`.toLowerCase().includes(search.toLowerCase())) return false;
-                if (filterType   !== 'ALL' && r.type   !== filterType)   return false;
-                if (filterStatus !== 'ALL' && r.status !== filterStatus) return false;
-                if (filterPlant  !== 'ALL' && String(r.plantId) !== filterPlant) return false;
-                if (fromDate && r.serviceDate && r.serviceDate < fromDate) return false;
-                if (toDate   && r.serviceDate && r.serviceDate > toDate)   return false;
-                return true;
-            }).sort((a,b)=>(b.serviceDate||b.createdAt||'').localeCompare(a.serviceDate||a.createdAt||''));
-
-            const statusColors = { 'Completed':['#27ae60','#e8f5e9'], 'In Progress':['#f39c12','#fff3e0'], 'Pending':['#7f8c8d','#f5f5f5'], 'Cancelled':['#e74c3c','#ffebee'] };
-            const typeColors   = { 'Scheduled':['#1565c0','#e3f2fd'], 'Breakdown':['#c62828','#ffebee'], 'Ad-hoc':['#6a1b9a','#f3e5f5'] };
-
-            const exportExcel = () => {
-                if (filtered.length===0){alert('No data to export.');return;}
-                const rows = filtered.map(r=>({
-                    Date: r.serviceDate||'-', Plant: r.plantName||'-', Type: r.type||'-',
-                    Status: r.status||'-', Vendor: r.vendor||'-', Technician: r.technician||'-',
-                    Description: r.description||'-', 'Cost ($)': r.cost||'-', Notes: r.notes||'-'
-                }));
-                const ws = XLSX.utils.json_to_sheet(rows);
-                ws['!cols'] = [{wch:12},{wch:22},{wch:12},{wch:12},{wch:20},{wch:18},{wch:35},{wch:10},{wch:30}];
-                const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Service Records');
-                const label = fromDate&&toDate?`${fromDate}_to_${toDate}`:new Date().toISOString().slice(0,10);
-                XLSX.writeFile(wb,`Service_Records_${label}.xlsx`);
-            };
-
-            const openBreakdowns = records.filter(r=>r.type==='Breakdown'&&r.status!=='Completed'&&r.status!=='Cancelled').length;
-
-            return (
-                <div>
-                    <div className="content-header">
-                        <div className="content-header-left">
-                            <h1>Service Records <span className="v3-badge">V1</span></h1>
-                            <p>Scheduled service, breakdown requests & ad-hoc maintenance</p>
-                        </div>
-                        <div className="content-header-right">
-                            <button className="btn btn-success" onClick={()=>{setEditing(null);setShowModal(true);}}>+ Add Record</button>
-                            <button className="btn btn-secondary" onClick={exportExcel}>📥 Export Excel</button>
-                        </div>
-                    </div>
-
-                    {/* Summary pills */}
-                    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'12px',marginBottom:'16px'}}>
-                        {[
-                            {label:'Total Records', num:records.length,                                                bg:'#f0f7ff',lc:'#1565c0',icon:'📋'},
-                            {label:'Completed',     num:records.filter(r=>r.status==='Completed').length,            bg:'#f0faf0',lc:'#2e7d32',icon:'✅'},
-                            {label:'Open Breakdowns',num:openBreakdowns,                                             bg:'#ffebee',lc:'#c62828',icon:'🔴'},
-                            {label:'In Progress',   num:records.filter(r=>r.status==='In Progress').length,          bg:'#fff3e0',lc:'#e65100',icon:'⚙️'},
-                        ].map(s=>(
-                            <div key={s.label} style={{background:s.bg,borderRadius:'12px',border:'1.5px solid #e9ecef',padding:'14px 16px'}}>
-                                <div style={{fontSize:'10px',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.6px',color:s.lc,marginBottom:'4px'}}>{s.icon} {s.label}</div>
-                                <div style={{fontSize:'28px',fontWeight:800,color:'#2c3e50',lineHeight:1}}>{s.num}</div>
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="table-card">
-                        {/* Filters */}
-                        <div style={{padding:'12px 18px',background:'#f8f9fa',borderBottom:'1px solid #e9ecef',display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
-                            <input placeholder="Search plant, vendor, description…" value={search} onChange={e=>setSearch(e.target.value)}
-                                style={{padding:'7px 12px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px',width:'220px'}} />
-                            <select value={filterPlant} onChange={e=>setFilterPlant(e.target.value)}
-                                style={{padding:'7px 10px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px'}}>
-                                <option value="ALL">All Plant</option>
-                                {plants.map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}
-                            </select>
-                            <select value={filterType} onChange={e=>setFilterType(e.target.value)}
-                                style={{padding:'7px 10px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px'}}>
-                                <option value="ALL">All Types</option>
-                                <option value="Scheduled">Scheduled</option>
-                                <option value="Breakdown">Breakdown</option>
-                                <option value="Ad-hoc">Ad-hoc</option>
-                            </select>
-                            <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}
-                                style={{padding:'7px 10px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px'}}>
-                                <option value="ALL">All Status</option>
-                                <option value="Pending">Pending</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Cancelled">Cancelled</option>
-                            </select>
-                            <input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)}
-                                title="From date" style={{padding:'7px 8px',fontSize:'12px',border:'1px solid #dfe6e9',borderRadius:'6px'}} />
-                            <input type="date" value={toDate} onChange={e=>setToDate(e.target.value)}
-                                title="To date" style={{padding:'7px 8px',fontSize:'12px',border:'1px solid #dfe6e9',borderRadius:'6px'}} />
-                            {(search||filterType!=='ALL'||filterStatus!=='ALL'||filterPlant!=='ALL'||fromDate||toDate) &&
-                                <button onClick={()=>{setSearch('');setFilterType('ALL');setFilterStatus('ALL');setFilterPlant('ALL');setFromDate('');setToDate('');}}
-                                    style={{padding:'7px 12px',fontSize:'13px',background:'#ecf0f1',border:'none',borderRadius:'6px',cursor:'pointer'}}>Clear</button>
-                            }
-                            <span style={{marginLeft:'auto',fontSize:'12px',color:'#7f8c8d'}}>{filtered.length} record{filtered.length!==1?'s':''}</span>
-                        </div>
-                        <div style={{overflowX:'auto'}}>
-                            <table className="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>No.</th><th>Date</th><th>Plant</th><th>Type</th>
-                                        <th>Vendor / Technician</th><th>Description</th>
-                                        <th>Cost</th><th>Status</th><th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filtered.length===0 ? (
-                                        <tr><td colSpan="9" style={{textAlign:'center',padding:'40px',color:'#95a5a6',fontStyle:'italic'}}>No service records found. Click "+ Add Record" to log a service.</td></tr>
-                                    ) : filtered.map((r,i)=>{
-                                        const [sc,sb] = statusColors[r.status]||['#7f8c8d','#f5f5f5'];
-                                        const [tc,tb] = typeColors[r.type]||['#7f8c8d','#f5f5f5'];
-                                        return (
-                                            <tr key={r.id}>
-                                                <td style={{color:'#adb5bd',fontWeight:600}}>{i+1}</td>
-                                                <td style={{fontWeight:600,whiteSpace:'nowrap'}}>{r.serviceDate||r.createdAt||'-'}</td>
-                                                <td style={{fontWeight:600}}>{r.plantName||'-'}</td>
-                                                <td><span style={{fontSize:'11px',fontWeight:700,color:tc,background:tb,padding:'3px 8px',borderRadius:'10px'}}>{r.type}</span></td>
-                                                <td>
-                                                    <div style={{fontSize:'13px'}}>{r.vendor||'-'}</div>
-                                                    {r.technician&&<div style={{fontSize:'11px',color:'#7f8c8d'}}>{r.technician}</div>}
-                                                </td>
-                                                <td style={{maxWidth:'200px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={r.description}>{r.description||'-'}</td>
-                                                <td>{r.cost?`$${r.cost}`:'-'}</td>
-                                                <td><span style={{fontSize:'11px',fontWeight:700,color:sc,background:sb,padding:'3px 8px',borderRadius:'10px'}}>{r.status}</span></td>
-                                                <td>
-                                                    <div style={{display:'flex',gap:'6px'}}>
-                                                        <button onClick={()=>{setEditing(r);setShowModal(true);}}
-                                                            style={{padding:'4px 10px',fontSize:'12px',background:'#3498db',color:'white',border:'none',borderRadius:'5px',cursor:'pointer'}}>Edit</button>
-                                                        <button onClick={()=>remove(r.id)}
-                                                            style={{padding:'4px 10px',fontSize:'12px',background:'#e74c3c',color:'white',border:'none',borderRadius:'5px',cursor:'pointer'}}>Del</button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {/* Service Record Modal */}
-                    {showModal && (
-                        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}}>
-                            <div style={{background:'white',borderRadius:'12px',width:'90%',maxWidth:'640px',maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}}>
-                                <div style={{padding:'20px',borderBottom:'1px solid #e9ecef',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                                    <h2 style={{margin:0}}>{editing?'Edit Service Record':'Add Service Record'}</h2>
-                                    <button onClick={()=>{setShowModal(false);setEditing(null);}} style={{background:'none',border:'none',fontSize:'24px',cursor:'pointer',color:'#95a5a6'}}>✕</button>
-                                </div>
-                                <div style={{padding:'24px',overflowY:'auto',flex:1}}>
-                                    <ServiceRecordForm initial={editing} plants={plants} onSave={save} onCancel={()=>{setShowModal(false);setEditing(null);}} />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            );
-        }
-
-        function ServiceRecordForm({ initial, plants, onSave, onCancel }) {
-            const [form, setForm] = useState({
-                plantId:'', plantName:'', type:'Scheduled', status:'Pending',
-                serviceDate: new Date().toISOString().slice(0,10),
-                vendor:'', technician:'', description:'', cost:'', notes:'', ...initial
-            });
-            const set = (k,v) => setForm(f=>({...f,[k]:v}));
-
-            const handlePlant = (id) => {
-                const p = plants.find(x=>String(x.id)===id);
-                setForm(f=>({...f, plantId: p?p.id:'', plantName: p?p.name:'', vendor: p?p.vendor:(f.vendor||'')}));
-            };
-
-            const submit = () => {
-                if (!form.plantId && !form.plantName) { alert('Please select or enter a plant.'); return; }
-                if (!form.description.trim()) { alert('Description is required.'); return; }
-                onSave({...form});
-            };
-
-            const fieldStyle = {width:'100%',padding:'9px 12px',border:'1px solid #dfe6e9',borderRadius:'7px',fontSize:'13px',boxSizing:'border-box'};
-            const labelStyle = {display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'5px'};
-            const row2 = {display:'grid',gridTemplateColumns:'1fr 1fr',gap:'14px',marginBottom:'14px'};
-
-            return (
-                <div>
-                    <div style={row2}>
-                        <div>
-                            <label style={labelStyle}>Plant / Equipment *</label>
-                            <select style={fieldStyle} value={String(form.plantId||'')} onChange={e=>handlePlant(e.target.value)}>
-                                <option value="">Select plant…</option>
-                                {plants.filter(p=>p.status!=='Inactive').map(p=><option key={p.id} value={String(p.id)}>{p.name}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Service Date</label>
-                            <input type="date" style={fieldStyle} value={form.serviceDate} onChange={e=>set('serviceDate',e.target.value)} />
-                        </div>
-                    </div>
-                    <div style={row2}>
-                        <div>
-                            <label style={labelStyle}>Type</label>
-                            <select style={fieldStyle} value={form.type} onChange={e=>set('type',e.target.value)}>
-                                <option value="Scheduled">Scheduled</option>
-                                <option value="Breakdown">Breakdown</option>
-                                <option value="Ad-hoc">Ad-hoc</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Status</label>
-                            <select style={fieldStyle} value={form.status} onChange={e=>set('status',e.target.value)}>
-                                <option value="Pending">Pending</option>
-                                <option value="In Progress">In Progress</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Cancelled">Cancelled</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div style={row2}>
-                        <div>
-                            <label style={labelStyle}>Vendor / Company</label>
-                            <input style={fieldStyle} value={form.vendor} onChange={e=>set('vendor',e.target.value)} placeholder="e.g. Acme Services" />
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Technician Name</label>
-                            <input style={fieldStyle} value={form.technician} onChange={e=>set('technician',e.target.value)} />
-                        </div>
-                    </div>
-                    <div style={{marginBottom:'14px'}}>
-                        <label style={labelStyle}>Description / Work Done *</label>
-                        <textarea style={{...fieldStyle,height:'80px',resize:'vertical'}} value={form.description} onChange={e=>set('description',e.target.value)} placeholder="Describe the service performed or fault reported…" />
-                    </div>
-                    <div style={row2}>
-                        <div>
-                            <label style={labelStyle}>Cost (AUD)</label>
-                            <input type="number" style={fieldStyle} value={form.cost} onChange={e=>set('cost',e.target.value)} placeholder="0.00" min="0" step="0.01" />
-                        </div>
-                        <div>
-                            <label style={labelStyle}>Notes</label>
-                            <input style={fieldStyle} value={form.notes} onChange={e=>set('notes',e.target.value)} placeholder="Any additional notes…" />
-                        </div>
-                    </div>
-                    <div style={{display:'flex',gap:'10px',justifyContent:'flex-end',marginTop:'6px'}}>
-                        <button onClick={onCancel} style={{padding:'10px 20px',background:'#95a5a6',color:'white',border:'none',borderRadius:'7px',cursor:'pointer',fontWeight:600}}>Cancel</button>
-                        <button onClick={submit} style={{padding:'10px 24px',background:'#27ae60',color:'white',border:'none',borderRadius:'7px',cursor:'pointer',fontWeight:600}}>Save</button>
-                    </div>
-                </div>
-            );
-        }
-
         function Settings() {
             const [activeTab, setActiveTab] = useState('user-management');
             const [users, setUsers] = useState(() => dataManager.data.users || []);
@@ -6948,10 +6347,11 @@ return (
             const handleExportAll = () => {
                 try {
                     const allData = {};
-                    const keys = ['forklifts','operators','maintenance','checklists','incidents','auditLog','users','plants','serviceRecords','equipment','training'];
+                    const keys = ['forklifts','operators','maintenance','checklists','incidents','auditLog','users','equipment','training'];
                     keys.forEach(k => { allData[k] = dataManager.data[k] || []; });
-                    // Also grab attendance records
+                    // Also grab attendance and eqmaintenance records
                     try { allData.attendance = JSON.parse(localStorage.getItem('forklift_attendance_records') || '[]'); } catch { allData.attendance = []; }
+                    try { allData.eqmaintenance = JSON.parse(localStorage.getItem('fms_eqmaintenance') || '[]'); } catch { allData.eqmaintenance = []; }
                     const blob = new Blob([JSON.stringify(allData, null, 2)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -6974,7 +6374,7 @@ return (
                 reader.onload = (ev) => {
                     try {
                         const imported = JSON.parse(ev.target.result);
-                        const keys = ['forklifts','operators','maintenance','checklists','incidents','auditLog','users','plants','serviceRecords','equipment','training'];
+                        const keys = ['forklifts','operators','maintenance','checklists','incidents','auditLog','users','equipment','training'];
                         keys.forEach(k => {
                             if (Array.isArray(imported[k])) {
                                 dataManager.data[k] = imported[k];
@@ -6983,6 +6383,9 @@ return (
                         });
                         if (Array.isArray(imported.attendance)) {
                             localStorage.setItem('forklift_attendance_records', JSON.stringify(imported.attendance));
+                        }
+                        if (Array.isArray(imported.eqmaintenance)) {
+                            localStorage.setItem('fms_eqmaintenance', JSON.stringify(imported.eqmaintenance));
                         }
                         setUsers([...dataManager.data.users]);
                         setAuditLogs([...dataManager.data.auditLog]);
