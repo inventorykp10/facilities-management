@@ -871,6 +871,9 @@ class DataManager {
                 this.saveData('training');
                 this.addAuditLog('Training', `Deleted training record`);
             }
+
+            // Operators
+            addOperator(operator) {
                 const newOperator = { ...operator, id: Date.now() };
                 this.data.operators.push(newOperator);
                 sortOperatorsAZ(this);
