@@ -4299,98 +4299,136 @@ return (
                             }
                         });
                         const allNames=[...(dateCalc.submittedList||[]),...(dateCalc.missing||[])].sort();
-                        const rows=allNames.map(n => {
+                        const baseRows=allNames.map(n => {
                             const op=operatorMap.get(n)||{};
                             const cl=checklistMap.get(n)||{};
                             const sub=(dateCalc.submittedList||[]).includes(n);
                             return {name:displayName(n),unit:cl.unitNo||'-',department:cl.department||op.department||'-',shift:cl.shift||op.shift||'-',status:sub?'Submitted':'Missing',normalized:n};
                         });
-
-                        // Navigate to prev/next date within range (or ±1 day for single)
                         const navDates = isRange ? dateList : null;
                         const currentIdx = navDates ? navDates.indexOf(modalDate) : -1;
                         const prevDate = navDates && currentIdx > 0 ? navDates[currentIdx-1] : null;
                         const nextDate = navDates && currentIdx < navDates.length-1 ? navDates[currentIdx+1] : null;
-
+                        const [smSearch, setSmSearch] = React.useState('');
+                        const [smDept,   setSmDept]   = React.useState('ALL');
+                        const [smShift,  setSmShift]  = React.useState('ALL');
+                        const [smStatus, setSmStatus] = React.useState('ALL');
+                        const depts = [...new Set(dataManager.getBankstownOperators().map(o=>o.department).filter(Boolean))].sort();
+                        const rows = baseRows.filter(r => {
+                            if(smSearch && !r.name.toLowerCase().includes(smSearch.toLowerCase())) return false;
+                            if(smDept   !== 'ALL' && r.department !== smDept)   return false;
+                            if(smShift  !== 'ALL' && r.shift      !== smShift)  return false;
+                            if(smStatus !== 'ALL' && r.status     !== smStatus) return false;
+                            return true;
+                        });
                         const exportModal = () => {
-                            const allData=[];
-                            for(const n of allNames){
-                                const op=operatorMap.get(n)||{};const cl=checklistMap.get(n)||{};const sub=(dateCalc.submittedList||[]).includes(n);
-                                allData.push({Date:modalDate,Operator:displayName(n),Unit:cl.unitNo||'-',Department:cl.department||op.department||'-',Shift:cl.shift||op.shift||'-',Status:sub?'Submitted':'Missing'});
-                            }
+                            const allData=rows.map(r=>({Date:modalDate,Operator:r.name,Unit:r.unit,Department:r.department,Shift:r.shift,Status:r.status}));
                             if(allData.length===0){alert('No data to export.');return;}
                             const ws=XLSX.utils.json_to_sheet(allData);ws['!cols']=[{wch:12},{wch:25},{wch:12},{wch:20},{wch:8},{wch:12}];
                             const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Summary');
                             XLSX.writeFile(wb,`Compliance_Summary_${modalDate}_${selectedShift}.xlsx`);
                         };
-
                         return (
                             <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:9999}}>
-                                <div style={{background:'white',borderRadius:'12px',width:'95%',maxWidth:'900px',maxHeight:'90vh',overflow:'hidden',display:'flex',flexDirection:'column'}}>
-                                    {/* Modal header */}
-                                    <div style={{padding:'16px 20px',borderBottom:'1px solid #e9ecef',display:'flex',justifyContent:'space-between',alignItems:'center',background:'#f8f9fa'}}>
-                                        <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
-                                            <h2 style={{margin:0,fontSize:'18px'}}>📅 Full Summary</h2>
-                                            {/* Date navigation */}
+                                <div style={{background:'white',borderRadius:'12px',width:'95%',maxWidth:'1600px',maxHeight:'95vh',overflow:'hidden',display:'flex',flexDirection:'column'}}>
+                                    <div style={{padding:'20px',borderBottom:'1px solid #e9ecef',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                                        <h2 style={{margin:0}}>📅 Full Summary</h2>
+                                        <button onClick={()=>setShowSummaryModal(false)} style={{background:'none',border:'none',fontSize:'24px',cursor:'pointer',color:'#95a5a6'}}>✕</button>
+                                    </div>
+                                    <div style={{padding:'20px',overflowY:'auto',flex:1}}>
+                                        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'10px',marginBottom:'20px'}}>
+                                            {[
+                                                {label:'Present',   num:dateCalc.allOperatorsCount,bg:'#f0faf0',lc:'#2e7d32'},
+                                                {label:'Submitted', num:dateCalc.submittedCount,   bg:'#e3f2fd',lc:'#1565c0'},
+                                                {label:'Missing',   num:dateCalc.missingCount,     bg:'#ffebee',lc:'#c62828',nc:'#c62828'},
+                                                {label:'Checklists',num:dateCalc.checklistCount,   bg:'#f3e5f5',lc:'#7b1fa2',extra:dateCalc.checklistCount>dateCalc.submittedCount?`+${dateCalc.checklistCount-dateCalc.submittedCount} dup`:null}
+                                            ].map(s=>(
+                                                <div key={s.label} style={{padding:'12px 16px',borderRadius:'10px',background:s.bg}}>
+                                                    <div style={{fontSize:'10px',fontWeight:700,textTransform:'uppercase',color:s.lc,marginBottom:'2px'}}>{s.label}</div>
+                                                    <div style={{fontSize:'26px',fontWeight:800,color:s.nc||'#2c3e50',lineHeight:1}}>{s.num}</div>
+                                                    {s.extra && <div style={{fontSize:'11px',color:'#8e24aa',fontWeight:600,marginTop:'2px'}}>{s.extra}</div>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:'15px',gap:'10px',flexWrap:'wrap'}}>
                                             <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
                                                 <button onClick={()=>prevDate&&setSummaryModalDate(prevDate)} disabled={!prevDate}
-                                                    style={{padding:'4px 10px',border:'1px solid #dfe6e9',borderRadius:'6px',background:prevDate?'white':'#f8f9fa',cursor:prevDate?'pointer':'default',color:prevDate?'#2c3e50':'#bdc3c7',fontWeight:600,fontSize:'13px'}}>‹ Prev</button>
+                                                    style={{padding:'6px 14px',border:'1px solid #dfe6e9',borderRadius:'6px',background:prevDate?'white':'#f8f9fa',cursor:prevDate?'pointer':'default',color:prevDate?'#2c3e50':'#bdc3c7',fontWeight:600,fontSize:'13px'}}>&#8249; Prev</button>
                                                 <input type="date" value={modalDate} onChange={e=>setSummaryModalDate(e.target.value)}
-                                                    style={{padding:'4px 8px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px',fontWeight:600}} />
+                                                    style={{padding:'6px 10px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px',fontWeight:600}} />
                                                 <button onClick={()=>nextDate&&setSummaryModalDate(nextDate)} disabled={!nextDate}
-                                                    style={{padding:'4px 10px',border:'1px solid #dfe6e9',borderRadius:'6px',background:nextDate?'white':'#f8f9fa',cursor:nextDate?'pointer':'default',color:nextDate?'#2c3e50':'#bdc3c7',fontWeight:600,fontSize:'13px'}}>Next ›</button>
+                                                    style={{padding:'6px 14px',border:'1px solid #dfe6e9',borderRadius:'6px',background:nextDate?'white':'#f8f9fa',cursor:nextDate?'pointer':'default',color:nextDate?'#2c3e50':'#bdc3c7',fontWeight:600,fontSize:'13px'}}>Next &#8250;</button>
+                                                {navDates && <span style={{fontSize:'11px',color:'#7f8c8d'}}>{currentIdx+1} / {navDates.length}</span>}
                                             </div>
-                                            <span style={{fontSize:'11px',color:'#7f8c8d',background:'#e9ecef',padding:'2px 8px',borderRadius:'10px'}}>{selectedShift}</span>
-                                        </div>
-                                        <div style={{display:'flex',gap:'8px',alignItems:'center'}}>
-                                            <button onClick={exportModal} style={{padding:'6px 14px',fontSize:'12px',background:'#27ae60',color:'white',border:'none',borderRadius:'6px',cursor:'pointer',fontWeight:600}}>📥 Export Excel</button>
-                                            <button onClick={()=>setShowSummaryModal(false)} style={{background:'none',border:'none',fontSize:'24px',cursor:'pointer',color:'#95a5a6'}}>✕</button>
-                                        </div>
-                                    </div>
-                                    {/* Stat bar */}
-                                    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',padding:'12px 20px',borderBottom:'1px solid #e9ecef'}}>
-                                        {[
-                                            {label:'Present',   num:dateCalc.allOperatorsCount, bg:'#f0faf0',lc:'#2e7d32'},
-                                            {label:'Submitted', num:dateCalc.submittedCount,    bg:'#e3f2fd',lc:'#1565c0'},
-                                            {label:'Missing',   num:dateCalc.missingCount,      bg:'#ffebee',lc:'#c62828',nc:'#c62828'},
-                                            {label:'Checklists',num:dateCalc.checklistCount,    bg:'#f3e5f5',lc:'#7b1fa2',extra:dateCalc.checklistCount>dateCalc.submittedCount?`+${dateCalc.checklistCount-dateCalc.submittedCount} dup`:null}
-                                        ].map(s=>(
-                                            <div key={s.label} style={{padding:'10px 14px',borderRadius:'10px',background:s.bg}}>
-                                                <div style={{fontSize:'10px',fontWeight:700,textTransform:'uppercase',color:s.lc,marginBottom:'2px'}}>{s.label}</div>
-                                                <div style={{fontSize:'22px',fontWeight:800,color:s.nc||'#2c3e50',lineHeight:1}}>{s.num}</div>
-                                                {s.extra && <div style={{fontSize:'10px',color:'#8e24aa',fontWeight:600,marginTop:'2px'}}>{s.extra}</div>}
+                                            <div style={{display:'flex',alignItems:'flex-end',gap:'8px',flexWrap:'wrap'}}>
+                                                <div>
+                                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'4px'}}>Operator</label>
+                                                    <input placeholder="Search name..." value={smSearch} onChange={e=>setSmSearch(e.target.value)}
+                                                        style={{padding:'8px 12px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px',width:'180px'}} />
+                                                </div>
+                                                <div>
+                                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'4px'}}>Department</label>
+                                                    <select value={smDept} onChange={e=>setSmDept(e.target.value)}
+                                                        style={{padding:'8px 12px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px',fontWeight:600}}>
+                                                        <option value="ALL">All Departments</option>
+                                                        {depts.map(d=><option key={d} value={d}>{d}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'4px'}}>Shift</label>
+                                                    <select value={smShift} onChange={e=>setSmShift(e.target.value)}
+                                                        style={{padding:'8px 12px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px',fontWeight:600}}>
+                                                        <option value="ALL">All</option><option value="AM">AM</option><option value="PM">PM</option>
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'4px'}}>Status</label>
+                                                    <select value={smStatus} onChange={e=>setSmStatus(e.target.value)}
+                                                        style={{padding:'8px 12px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px',fontWeight:600}}>
+                                                        <option value="ALL">All</option><option value="Submitted">Submitted</option><option value="Missing">Missing</option>
+                                                    </select>
+                                                </div>
+                                                <button className="btn btn-secondary" onClick={()=>{setSmSearch('');setSmDept('ALL');setSmShift('ALL');setSmStatus('ALL');}}
+                                                    style={{padding:'8px 14px',fontSize:'13px'}}>Clear</button>
+                                                <button onClick={exportModal} style={{padding:'8px 14px',fontSize:'13px',background:'#27ae60',color:'white',border:'none',borderRadius:'6px',cursor:'pointer',fontWeight:600}}>&#128229; Export Excel</button>
                                             </div>
-                                        ))}
-                                    </div>
-                                    {/* Operator table */}
-                                    <div style={{overflowY:'auto',flex:1}}>
-                                        {rows.length===0 ? (<div style={{padding:'40px',textAlign:'center',color:'#95a5a6',fontStyle:'italic'}}>No records found for {modalDate}</div>) : (
-                                            <table className="data-table" style={{fontSize:'13px',tableLayout:'fixed',width:'100%'}}>
-                                                <thead style={{position:'sticky',top:0,zIndex:1}}>
-                                                    <tr><th style={{width:'5%'}}>#</th><th style={{width:'27%'}}>Operator</th><th style={{width:'13%'}}>Unit</th><th style={{width:'27%'}}>Department</th><th style={{width:'10%'}}>Shift</th><th style={{width:'18%'}}>Status</th></tr>
-                                                </thead>
-                                                <tbody>
-                                                    {rows.map((r,i)=>(
-                                                        <tr key={r.normalized}
-                                                            onDoubleClick={()=>{setAttSearchStartDate(modalDate);setAttSearchEndDate(modalDate);setShowSummaryModal(false);setShowAttendanceModal(true);}}
-                                                            style={{cursor:'pointer'}} title="Double-click → Attendance 상세">
-                                                            <td style={{color:'#adb5bd'}}>{i+1}</td>
-                                                            <td style={{fontWeight:600,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.name}</td>
-                                                            <td>{r.unit}</td>
-                                                            <td style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{r.department}</td>
-                                                            <td>{r.shift}</td>
-                                                            <td><span style={{fontSize:'11px',fontWeight:700,color:r.status==='Submitted'?'#27ae60':'#c62828',background:r.status==='Submitted'?'#e8f5e9':'#ffebee',padding:'3px 8px',borderRadius:'10px'}}>{r.status}</span></td>
+                                        </div>
+                                        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}}>
+                                            <h3 style={{margin:0}}>Records ({rows.length})</h3>
+                                            <span style={{fontSize:'12px',color:'#7f8c8d'}}>{selectedShift} shift &nbsp;&#183;&nbsp; {modalDate}</span>
+                                        </div>
+                                        <div style={{overflowX:'auto'}}>
+                                            {rows.length===0 ? (<div style={{padding:'40px',textAlign:'center',color:'#95a5a6',fontStyle:'italic'}}>No records found</div>) : (
+                                                <table className="data-table" style={{fontSize:'13px',width:'100%'}}>
+                                                    <thead style={{position:'sticky',top:0,zIndex:1}}>
+                                                        <tr>
+                                                            <th style={{width:'50px'}}>No.</th>
+                                                            <th style={{width:'200px'}}>Operator</th>
+                                                            <th style={{width:'120px'}}>Unit</th>
+                                                            <th style={{width:'180px'}}>Department</th>
+                                                            <th style={{width:'80px'}}>Shift</th>
+                                                            <th style={{width:'150px'}}>Status</th>
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        )}
-                                    </div>
-                                    {navDates && (
-                                        <div style={{padding:'10px 20px',background:'#f8f9fa',borderTop:'1px solid #e9ecef',fontSize:'11px',color:'#7f8c8d',textAlign:'center'}}>
-                                            {currentIdx+1} / {navDates.length} days &nbsp;|&nbsp; ‹ Prev / Next › 로 날짜 이동 &nbsp;|&nbsp; 행 더블클릭 → Attendance 상세
+                                                    </thead>
+                                                    <tbody>
+                                                        {rows.map((r,i)=>(
+                                                            <tr key={r.normalized}
+                                                                onDoubleClick={()=>{setAttSearchStartDate(modalDate);setAttSearchEndDate(modalDate);setShowSummaryModal(false);setShowAttendanceModal(true);}}
+                                                                style={{cursor:'pointer'}} title="Double-click to open Attendance">
+                                                                <td style={{textAlign:'center',fontWeight:600,color:'#7f8c8d'}}>{i+1}</td>
+                                                                <td style={{fontWeight:600}}>{r.name}</td>
+                                                                <td>{r.unit}</td>
+                                                                <td>{r.department}</td>
+                                                                <td>{r.shift}</td>
+                                                                <td><span style={{fontSize:'11px',fontWeight:700,color:r.status==='Submitted'?'#27ae60':'#c62828',background:r.status==='Submitted'?'#e8f5e9':'#ffebee',padding:'3px 8px',borderRadius:'10px'}}>{r.status==='Submitted'?'&#10003; Submitted':'&#9888; Missing'}</span></td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            )}
                                         </div>
-                                    )}
+                                        <div style={{marginTop:'10px',fontSize:'11px',color:'#7f8c8d'}}>&#128161; &#54665; &#45908;&#48660;&#53364;&#47533; &#8594; Attendance &#49345;&#49464;&#47196; &#51060;&#46041;</div>
+                                    </div>
                                 </div>
                             </div>
                         );
@@ -4442,28 +4480,60 @@ return (
                                 });
                                 const presentFromAtt=getPresentFromAttendance(targetDate);
                                 const presentOps=intersectSets(presentFromAtt,operatorSet);
-                                let rows=[];
+                                let allRows=[];
                                 let listTitle='';
                                 if(subPillView==='PRESENT'){
-                                    listTitle=`Present — ${totalOperators} operators`;
-                                    rows=Array.from(presentOps).sort().map(n=>{const op=operatorMap.get(n)||{};const cl=checklistMapAll.get(n)||{};const sub=(dateCalc.submittedList||[]).includes(n);return{name:displayName(n),unit:cl.unitNo||'-',department:cl.department||op.department||'-',shift:cl.shift||op.shift||'-',status:sub?'Submitted':'Missing',normalized:n};});
+                                    listTitle=`Present`;
+                                    allRows=Array.from(presentOps).sort().map(n=>{const op=operatorMap.get(n)||{};const cl=checklistMapAll.get(n)||{};const sub=(dateCalc.submittedList||[]).includes(n);return{name:displayName(n),unit:cl.unitNo||'-',department:cl.department||op.department||'-',shift:cl.shift||op.shift||'-',status:sub?'Submitted':'Missing',normalized:n};});
                                 } else if(subPillView==='SUBMITTED'){
-                                    listTitle=`Submitted — ${submittedCount} people`;
-                                    rows=(dateCalc.submittedList||[]).map(n=>{const op=operatorMap.get(n)||{};const cl=checklistMapAll.get(n)||{};return{name:displayName(n),unit:cl.unitNo||'-',department:cl.department||op.department||'-',shift:cl.shift||op.shift||'-',status:'Submitted',normalized:n};});
+                                    listTitle=`Submitted`;
+                                    allRows=(dateCalc.submittedList||[]).map(n=>{const op=operatorMap.get(n)||{};const cl=checklistMapAll.get(n)||{};return{name:displayName(n),unit:cl.unitNo||'-',department:cl.department||op.department||'-',shift:cl.shift||op.shift||'-',status:'Submitted',normalized:n};});
                                 } else if(subPillView==='MISSING'){
-                                    listTitle=`Missing — ${missingCount} not submitted`;
-                                    rows=(dateCalc.missing||[]).map(n=>{const op=operatorMap.get(n)||{};return{name:displayName(n),unit:'-',department:op.department||'-',shift:op.shift||'-',status:'Missing',normalized:n};});
+                                    listTitle=`Missing`;
+                                    allRows=(dateCalc.missing||[]).map(n=>{const op=operatorMap.get(n)||{};return{name:displayName(n),unit:'-',department:op.department||'-',shift:op.shift||'-',status:'Missing',normalized:n};});
                                 } else {
-                                    listTitle=`Checklists — ${active.checklistCount} sheets`;
+                                    listTitle=`Checklists`;
                                     const countMap=new Map();checklistRows.forEach(c=>{const key=normalizeName(c.operator||'');countMap.set(key,(countMap.get(key)||0)+1);});
-                                    rows=checklistRows.map((c,i)=>{const key=normalizeName(c.operator||'');const cnt=countMap.get(key)||1;return{name:(c.operator||'-')+(cnt>1?' ⚠️':''),unit:c.unitNo||'-',department:c.department||'-',shift:c.shift||'-',status:'Submitted',normalized:key+i};});
+                                    allRows=checklistRows.map((c,i)=>{const key=normalizeName(c.operator||'');const cnt=countMap.get(key)||1;return{name:(c.operator||'-')+(cnt>1?' ⚠️':''),unit:c.unitNo||'-',department:c.department||'-',shift:c.shift||'-',status:'Submitted',normalized:key+i};});
                                 }
+
+                                /* ── inline search filters ── */
+                                const [subSearch, setSubSearch] = React.useState('');
+                                const [subDept,   setSubDept]   = React.useState('ALL');
+                                const [subShiftF, setSubShiftF] = React.useState('ALL');
+                                const depts = [...new Set(dataManager.getBankstownOperators().map(o=>o.department).filter(Boolean))].sort();
+
+                                let rows = allRows.filter(r => {
+                                    if(subSearch && !r.name.toLowerCase().includes(subSearch.toLowerCase())) return false;
+                                    if(subDept   !== 'ALL' && r.department !== subDept) return false;
+                                    if(subShiftF !== 'ALL' && r.shift !== subShiftF) return false;
+                                    return true;
+                                });
+
                                 return (
                                     <div style={{borderTop:'1px solid #e9ecef'}}>
-                                        <div style={{padding:'10px 18px',background:'#f8f9fa',borderBottom:'1px solid #e9ecef',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                                            <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                                                <span style={{fontSize:'13px',fontWeight:700,color:'#2c3e50'}}>{listTitle}</span>
-                                                <span style={{fontSize:'11px',color:'#7f8c8d',background:'#e9ecef',padding:'2px 8px',borderRadius:'10px'}}>{targetDate} · {selectedShift}</span>
+                                        {/* Filter bar */}
+                                        <div style={{padding:'10px 18px',background:'#f8f9fa',borderBottom:'1px solid #e9ecef',display:'flex',alignItems:'center',gap:'10px',flexWrap:'wrap'}}>
+                                            <span style={{fontSize:'13px',fontWeight:700,color:'#2c3e50'}}>{listTitle} — {rows.length}</span>
+                                            <span style={{fontSize:'11px',color:'#7f8c8d',background:'#e9ecef',padding:'2px 8px',borderRadius:'10px'}}>{targetDate} · {selectedShift}</span>
+                                            <div style={{marginLeft:'auto',display:'flex',alignItems:'center',gap:'8px',flexWrap:'wrap'}}>
+                                                <input placeholder="Search operator…" value={subSearch} onChange={e=>setSubSearch(e.target.value)}
+                                                    style={{padding:'5px 10px',fontSize:'12px',border:'1px solid #dfe6e9',borderRadius:'6px',width:'160px'}} />
+                                                <select value={subDept} onChange={e=>setSubDept(e.target.value)}
+                                                    style={{padding:'5px 8px',fontSize:'12px',border:'1px solid #dfe6e9',borderRadius:'6px'}}>
+                                                    <option value="ALL">All Depts</option>
+                                                    {depts.map(d=><option key={d} value={d}>{d}</option>)}
+                                                </select>
+                                                <select value={subShiftF} onChange={e=>setSubShiftF(e.target.value)}
+                                                    style={{padding:'5px 8px',fontSize:'12px',border:'1px solid #dfe6e9',borderRadius:'6px'}}>
+                                                    <option value="ALL">All Shifts</option>
+                                                    <option value="AM">AM</option>
+                                                    <option value="PM">PM</option>
+                                                </select>
+                                                {(subSearch||subDept!=='ALL'||subShiftF!=='ALL') &&
+                                                    <button onClick={()=>{setSubSearch('');setSubDept('ALL');setSubShiftF('ALL');}}
+                                                        style={{padding:'5px 10px',fontSize:'12px',background:'#ecf0f1',border:'none',borderRadius:'6px',cursor:'pointer'}}>Clear</button>
+                                                }
                                             </div>
                                         </div>
                                         {rows.length===0?(<div style={{padding:'20px',textAlign:'center',color:'#7f8c8d'}}>No records found</div>):(
@@ -4487,7 +4557,7 @@ return (
                                                 </table>
                                             </div>
                                         )}
-                                        <div style={{padding:'6px 16px 10px',fontSize:'11px',color:'#7f8c8d'}}>💡 행 더블클릭 → Attendance 상세 | ⚠️ 중복 제출</div>
+                                        <div style={{padding:'6px 16px 10px',fontSize:'11px',color:'#7f8c8d'}}>💡 행 더블클릭 → Attendance 상세 &nbsp;|&nbsp; ⚠️ 중복 제출</div>
                                     </div>
                                 );
                             })()}
@@ -4497,55 +4567,14 @@ return (
                     {/* ══ PANEL: ATTENDANCE ══ */}
                     {activePill === 'attendance' && (
                         <div className="table-card">
-                            <div style={{padding:'12px 18px',background:'#f8f9fa',borderBottom:'1px solid #e9ecef',display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:'10px'}}>
-                                <span style={{fontSize:'13px',fontWeight:700,color:'#2c3e50'}}>📋 Attendance</span>
-                                <button className="btn btn-success" onClick={()=>setShowAttendanceModal(true)} style={{fontSize:'12px',padding:'5px 14px'}}>📋 Open Full Attendance</button>
-                            </div>
-                            <div style={{padding:'14px 18px 10px',display:'flex',gap:'10px',flexWrap:'wrap',alignItems:'flex-end'}}>
-                                <div style={{minWidth:'140px'}}>
-                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'4px'}}>From Date</label>
-                                    <input type="date" value={attSearchStartDate} onChange={e=>setAttSearchStartDate(e.target.value)} style={{width:'100%',padding:'8px 12px',border:'1px solid #dfe6e9',borderRadius:'6px',fontSize:'13px'}} />
+                            <div style={{padding:'20px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px'}}>
+                                <div>
+                                    <div style={{fontSize:'15px',fontWeight:700,color:'#2c3e50',marginBottom:'4px'}}>📋 Attendance Records</div>
+                                    <div style={{fontSize:'13px',color:'#7f8c8d'}}>출결 기록 전체 조회, 필터링, Export 및 Long Absence 알림은 전체 보기에서 확인하세요.</div>
                                 </div>
-                                <div style={{minWidth:'140px'}}>
-                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'4px'}}>To Date</label>
-                                    <input type="date" value={attSearchEndDate} onChange={e=>setAttSearchEndDate(e.target.value)} style={{width:'100%',padding:'8px 12px',border:'1px solid #dfe6e9',borderRadius:'6px',fontSize:'13px'}} />
-                                </div>
-                                <div style={{minWidth:'180px'}}>
-                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'4px'}}>Operator</label>
-                                    <select value={attSearchOperator} onChange={e=>setAttSearchOperator(e.target.value)} style={{width:'100%',padding:'8px 12px',border:'1px solid #dfe6e9',borderRadius:'6px',fontSize:'13px',fontWeight:600}}>
-                                        <option value="ALL">All Operators</option>
-                                        {[...new Set(dataManager.getBankstownOperators().map(o=>o.name))].sort().map(name=>(<option key={name} value={name}>{name}</option>))}
-                                    </select>
-                                </div>
-                                <div style={{minWidth:'150px'}}>
-                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'4px'}}>Department</label>
-                                    <select value={attSearchDepartment} onChange={e=>setAttSearchDepartment(e.target.value)} style={{width:'100%',padding:'8px 12px',border:'1px solid #dfe6e9',borderRadius:'6px',fontSize:'13px',fontWeight:600}}>
-                                        <option value="ALL">All Departments</option>
-                                        {[...new Set(dataManager.getBankstownOperators().map(o=>o.department).filter(d=>d))].sort().map(dept=>(<option key={dept} value={dept}>{dept}</option>))}
-                                    </select>
-                                </div>
-                                <div style={{minWidth:'100px'}}>
-                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'4px'}}>Shift</label>
-                                    <select value={attSearchShift} onChange={e=>setAttSearchShift(e.target.value)} style={{width:'100%',padding:'8px 12px',border:'1px solid #dfe6e9',borderRadius:'6px',fontSize:'13px',fontWeight:600}}>
-                                        <option value="ALL">All</option><option value="AM">AM</option><option value="PM">PM</option>
-                                    </select>
-                                </div>
-                                <div style={{minWidth:'120px'}}>
-                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'4px'}}>Attendance</label>
-                                    <select value={attSearchAttendance} onChange={e=>setAttSearchAttendance(e.target.value)} style={{width:'100%',padding:'8px 12px',border:'1px solid #dfe6e9',borderRadius:'6px',fontSize:'13px',fontWeight:600}}>
-                                        <option value="ALL">All</option><option value="Present">Present</option><option value="Absent">Absent</option>
-                                    </select>
-                                </div>
-                                <div style={{minWidth:'130px'}}>
-                                    <label style={{display:'block',fontSize:'12px',fontWeight:600,color:'#7f8c8d',marginBottom:'4px'}}>Status</label>
-                                    <select value={attSearchStatus} onChange={e=>setAttSearchStatus(e.target.value)} style={{width:'100%',padding:'8px 12px',border:'1px solid #dfe6e9',borderRadius:'6px',fontSize:'13px',fontWeight:600}}>
-                                        <option value="ALL">All</option><option value="Submitted">Submitted</option><option value="Missing">Missing</option><option value="N/A">N/A</option><option value="Inactive">Inactive</option>
-                                    </select>
-                                </div>
-                                <button className="btn btn-secondary" onClick={()=>{setAttSearchOperator('ALL');setAttSearchDepartment('ALL');setAttSearchShift('ALL');setAttSearchAttendance('ALL');setAttSearchStatus('ALL');setAttSearchStartDate('');setAttSearchEndDate('');}} style={{padding:'8px 14px',fontSize:'13px',alignSelf:'flex-end'}}>Clear</button>
-                            </div>
-                            <div style={{padding:'6px 18px 14px',fontSize:'13px',color:'#7f8c8d'}}>
-                                Filters apply to the Full Attendance view. Click <strong style={{color:'#2c3e50'}}>Open Full Attendance</strong> to see the complete table with export and long-absence alerts.
+                                <button className="btn btn-success" onClick={()=>setShowAttendanceModal(true)} style={{fontSize:'13px',padding:'10px 20px',whiteSpace:'nowrap',flexShrink:0}}>
+                                    📋 Open Full Attendance
+                                </button>
                             </div>
                         </div>
                     )}
