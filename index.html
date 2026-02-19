@@ -1052,13 +1052,16 @@ class DataManager {
                 // Forklifts의 경우 컬럼 순서 지정
                 if (dataType === 'forklifts') {
                     data = data.map(f => ({
-                        'Group': f.group,
-                        'Site': f.site,
                         'Unit No': f.unitNo,
-                        'Serial No (S/N)': f.serialNo || '',
                         'Type': f.type,
-                        'Specification': f.specification,
-                        'Status': f.status
+                        'Manufacturer': f.manufacturer || '',
+                        'Model': f.model || '',
+                        'Serial No (S/N)': f.serialNo || '',
+                        'Specification': f.specification || '',
+                        'Site': f.site || '',
+                        'Group': f.group || '',
+                        'Status': f.status || '',
+                        'Notes': f.notes || ''
                     }));
                 }
                 
@@ -1225,7 +1228,7 @@ class DataManager {
                             <img src={IMAGES.companyLogo} alt="Samsung SDS Cello" className="login-company-logo" />
                             <img src={IMAGES.forkliftIcon} alt="Icon" className="login-logo-img" />
                             <h1>Total Facilities Management System</h1>
-                            <span className="v3-badge">V1.1.1</span>
+                            <span className="v3-badge">V1.2.0</span>
                         </div>
                         
                         <div className="welcome-message">
@@ -1266,7 +1269,7 @@ class DataManager {
                     <div className="sidebar-header">
                         <img src={IMAGES.forkliftIcon} alt="Icon" className="sidebar-icon" />
                         <div className="sidebar-logo">Total FMS</div>
-                        <div style={{fontSize:'11px',color:'rgba(255,255,255,0.45)',marginTop:'4px',letterSpacing:'0.5px'}}>V1.1.1</div>
+                        <div style={{fontSize:'11px',color:'rgba(255,255,255,0.45)',marginTop:'4px',letterSpacing:'0.5px'}}>V1.2.0</div>
                         <img src={IMAGES.samsungLogo} alt="Logo" className="sidebar-header-logo" />
                     </div>
                     
@@ -3662,18 +3665,29 @@ class DataManager {
 
         // FORKLIFTS
         function Forklifts() {
-            const [forklifts, setForklifts] = useState(dataManager.data.forklifts);
-            const [showModal, setShowModal] = useState(false);
-            const [editingForklift, setEditingForklift] = useState(null);
-            const [searchTerm, setSearchTerm] = useState('');
-            const [filterType, setFilterType] = useState('all');
-            const [currentPage, setCurrentPage] = useState(1);
+            // Seed initial data from xlsx if forklifts list is empty
+            const SEED_DATA = [{"id": 1700000000001, "unitNo": "SP3021", "group": "SDSAU", "site": "Bankstown", "type": "Counterbalanace", "specification": "", "serialNo": "HHKHFY10LF0000705", "model": "18BT-9U", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000002, "unitNo": "SP3022", "group": "SDSAU", "site": "Bankstown", "type": "Counterbalanace", "specification": "", "serialNo": "HHKHFY10TF0000709", "model": "18BT-9U", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000003, "unitNo": "SP3023", "group": "SDSAU", "site": "Bankstown", "type": "High Reach", "specification": "", "serialNo": "HHKHHJ04CF0000611", "model": "16BRJ-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000004, "unitNo": "SP3024", "group": "SDSAU", "site": "Bankstown", "type": "High Reach", "specification": "", "serialNo": "HHKHHJ04VF0000612", "model": "16BRJ-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000005, "unitNo": "SP3025", "group": "SDSAU", "site": "Bankstown", "type": "High Reach", "specification": "", "serialNo": "HHKHHJ04JF0000610", "model": "16BRJ-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000006, "unitNo": "SP3026", "group": "SDSAU", "site": "Bankstown", "type": "High Reach", "specification": "", "serialNo": "HHKHHJ04TF0000618", "model": "16BRJ-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000007, "unitNo": "SP3027", "group": "SDSAU", "site": "Bankstown", "type": "High Reach", "specification": "", "serialNo": "HHKHHJ04LF0000614", "model": "16BRJ-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000008, "unitNo": "SP3029", "group": "SDSAU", "site": "Bankstown", "type": "High Reach", "specification": "", "serialNo": "HHKHHJ04EF0000616", "model": "16BRJ-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000009, "unitNo": "SP3033", "group": "SDSAU", "site": "Bankstown", "type": "Counterbalanace", "specification": "", "serialNo": "HHKHFY10VF0000703", "model": "18BT-9U", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000010, "unitNo": "SP3040", "group": "SDSAU", "site": "Bankstown", "type": "Counterbalanace", "specification": "", "serialNo": "HHKHFY10EF0000707", "model": "18BT-9U", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000011, "unitNo": "SP3041", "group": "SDSAU", "site": "Bankstown", "type": "Counterbalanace", "specification": "", "serialNo": "HHKHFY10EF0000710", "model": "18BT-9U", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000012, "unitNo": "SP3042", "group": "SDSAU", "site": "Bankstown", "type": "Counterbalanace", "specification": "", "serialNo": "HHKHFY10HF0000706", "model": "18BT-9U", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000013, "unitNo": "SP3058", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06VF0002322", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000014, "unitNo": "SP3059", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06HF0002325", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000015, "unitNo": "SP3061", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06TF0002331", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000016, "unitNo": "SP3063", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06AF0002337", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000017, "unitNo": "SP3064", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06KF0002333", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000018, "unitNo": "SP3065", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06CF0002327", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000019, "unitNo": "SP3066", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06PF0002332", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000020, "unitNo": "SP3070", "group": "SDSAU", "site": "Bankstown", "type": "Counterbalanace", "specification": "", "serialNo": "HHKHHE06LF0002338", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000021, "unitNo": "SP3071", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06AF0002323", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000022, "unitNo": "SP3072", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06AF0002340", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000023, "unitNo": "SP3073", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06PF0002329", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000024, "unitNo": "SP3074", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06EF0002326", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000025, "unitNo": "SP3075", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06TF0002328", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000026, "unitNo": "SP3076", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06HF0002339", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000027, "unitNo": "SP3178", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06AF0002449", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000028, "unitNo": "SP3214", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06TF0002314", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000029, "unitNo": "SP3215", "group": "SDSAU", "site": "Bankstown", "type": "Slip Sheet", "specification": "", "serialNo": "HHKHHE06CF0002313", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000030, "unitNo": "SP3216", "group": "SDSAU", "site": "Bankstown", "type": "Counterbalanace", "specification": "", "serialNo": "HHKHHE06TF0002345", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000031, "unitNo": "SP3217", "group": "SDSAU", "site": "Bankstown", "type": "Counterbalanace", "specification": "", "serialNo": "HHKHHE06EF0002343", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000032, "unitNo": "SP3218", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06JF0002480", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000033, "unitNo": "SP3219", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06JF0002348", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000034, "unitNo": "SP3222", "group": "SDSAU", "site": "Bankstown", "type": "Clamp", "specification": "", "serialNo": "HHKHHE06VF0002479", "model": "20B-9", "manufacturer": "Hyundai", "status": "Active"}, {"id": 1700000000035, "unitNo": "SJ4732", "group": "SDSAU", "site": "Bankstown", "type": "Scissor Lift", "specification": "", "serialNo": "", "model": "", "manufacturer": "", "status": "Active"}];
+            if (dataManager.data.forklifts.length === 0) {
+                dataManager.data.forklifts = SEED_DATA;
+                dataManager.saveData('forklifts');
+            }
+
+            const [forklifts, setForklifts] = React.useState(dataManager.data.forklifts);
+            const [showModal, setShowModal] = React.useState(false);
+            const [editingForklift, setEditingForklift] = React.useState(null);
+            const [detailForklift, setDetailForklift] = React.useState(null);
+            const [searchTerm, setSearchTerm] = React.useState('');
+            const [filterType, setFilterType] = React.useState('all');
+            const [currentPage, setCurrentPage] = React.useState(1);
             const itemsPerPage = 20;
 
             const filteredForklifts = forklifts.filter(f => {
-                const matchesSearch = (f.unitNo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                     (f.type || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                     (f.serialNo || '').toLowerCase().includes(searchTerm.toLowerCase());
+                const q = searchTerm.toLowerCase();
+                const matchesSearch = (f.unitNo||'').toLowerCase().includes(q) ||
+                    (f.type||'').toLowerCase().includes(q) ||
+                    (f.serialNo||'').toLowerCase().includes(q) ||
+                    (f.model||'').toLowerCase().includes(q) ||
+                    (f.manufacturer||'').toLowerCase().includes(q);
                 const matchesFilter = filterType === 'all' || f.type === filterType;
                 return matchesSearch && matchesFilter;
             });
@@ -3683,39 +3697,30 @@ class DataManager {
             const paginatedForklifts = filteredForklifts.slice(startIdx, startIdx + itemsPerPage);
             const uniqueTypes = [...new Set(forklifts.map(f => f.type).filter(Boolean))];
 
-            const handleAdd = () => {
-                setEditingForklift(null);
-                setShowModal(true);
-            };
-
-            const handleEdit = (forklift) => {
-                setEditingForklift(forklift);
-                setShowModal(true);
-            };
-
+            const handleAdd = () => { setEditingForklift(null); setShowModal(true); };
+            const handleEdit = (f) => { setEditingForklift(f); setShowModal(true); };
             const handleDelete = (id) => {
-                if (confirm('Are you sure you want to delete this forklift?')) {
+                if (confirm('Delete this forklift?')) {
                     dataManager.deleteForklift(id);
                     setForklifts([...dataManager.data.forklifts]);
                 }
             };
-
-            const handleSave = (forkliftData) => {
-                if (editingForklift) {
-                    dataManager.updateForklift(editingForklift.id, forkliftData);
-                } else {
-                    dataManager.addForklift(forkliftData);
-                }
+            const handleSave = (data) => {
+                if (editingForklift) { dataManager.updateForklift(editingForklift.id, data); }
+                else { dataManager.addForklift(data); }
                 setForklifts([...dataManager.data.forklifts]);
                 setShowModal(false);
             };
+
+            const labelStyle = {fontSize:'11px',fontWeight:700,color:'#7f8c8d',textTransform:'uppercase',letterSpacing:'0.5px',marginBottom:'4px',display:'block'};
+            const valStyle = {fontSize:'14px',color:'#2c3e50',fontWeight:500};
 
             return (
                 <div>
                     <div className="content-header">
                         <div className="content-header-left">
-                            <h1>Forklift Fleet Management <span className="v3-badge">V4</span></h1>
-                            <p>Samsung SDS Cello Bankstown - {filteredForklifts.length} Units</p>
+                            <h1>Forklift Fleet Management <span className="v3-badge">V1.2.0</span></h1>
+                            <p>Samsung SDS Cello Bankstown — {filteredForklifts.length} Units</p>
                         </div>
                         <div className="content-header-right">
                             <img src={IMAGES.companyLogo} alt="Samsung SDS Cello" className="content-header-logo" />
@@ -3724,9 +3729,9 @@ class DataManager {
 
                     <div className="table-card">
                         <div className="table-header">
-                            <h3>Fleet Inventory ({filteredForklifts.length} units)</h3>
-                            <div style={{display: 'flex', gap: '10px'}}>
-                                <button className="btn btn-success" onClick={handleAdd}>➕ Add Forklift</button>
+                            <h3>Fleet Register ({filteredForklifts.length} units) <span style={{fontSize:'12px',fontWeight:400,color:'#7f8c8d',marginLeft:'8px'}}>Double-click a row to view full details</span></h3>
+                            <div style={{display:'flex',gap:'10px'}}>
+                                <button className="btn btn-success" onClick={handleAdd}>➕ Add</button>
                                 <button className="btn btn-secondary" onClick={() => dataManager.exportToExcel('forklifts')}>📊 Export</button>
                             </div>
                         </div>
@@ -3734,16 +3739,13 @@ class DataManager {
                         <div className="search-filters">
                             <div className="search-box">
                                 <span className="search-icon">🔍</span>
-                                <input type="text" placeholder="Search..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
-                                {searchTerm && (
-                                    <button onClick={() => setSearchTerm('')} style={{position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: '#95a5a6'}}>✕</button>
-                                )}
+                                <input type="text" placeholder="Search unit, type, S/N, model..." value={searchTerm}
+                                    onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} />
+                                {searchTerm && <button onClick={() => setSearchTerm('')} style={{position:'absolute',right:'10px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',fontSize:'18px',color:'#95a5a6'}}>✕</button>}
                             </div>
-                            <select className="filter-select" value={filterType} onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}>
+                            <select className="filter-select" value={filterType} onChange={e => { setFilterType(e.target.value); setCurrentPage(1); }}>
                                 <option value="all">All Types</option>
-                                {uniqueTypes.map(type => (
-                                    <option key={type} value={type}>{type}</option>
-                                ))}
+                                {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
                         </div>
 
@@ -3753,28 +3755,25 @@ class DataManager {
                                     <tr>
                                         <th>Unit No</th>
                                         <th>Type</th>
-                                        <th>Serial No (S/N)</th>
                                         <th>Specification</th>
-                                        <th>Site</th>
-                                        <th>Group</th>
                                         <th>Status</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {paginatedForklifts.map(f => (
-                                        <tr key={f.id}>
+                                        <tr key={f.id}
+                                            onDoubleClick={() => setDetailForklift(f)}
+                                            style={{cursor:'pointer'}}
+                                            title="Double-click to view full details">
                                             <td><strong>{f.unitNo}</strong></td>
                                             <td>{f.type}</td>
-                                            <td>{f.serialNo || <span style={{color:'#bdc3c7'}}>—</span>}</td>
-                                            <td>{f.specification}</td>
-                                            <td>{f.site}</td>
-                                            <td>{f.group}</td>
-                                            <td><span className={`status-badge status-${(f.status || 'active').toLowerCase()}`}>{f.status || 'Active'}</span></td>
+                                            <td>{f.specification || <span style={{color:'#bdc3c7'}}>—</span>}</td>
+                                            <td><span className={`status-badge status-${(f.status||'active').toLowerCase()}`}>{f.status||'Active'}</span></td>
                                             <td>
                                                 <div className="action-icons">
-                                                    <button className="icon-btn edit" onClick={() => handleEdit(f)} title="Edit">✏️</button>
-                                                    <button className="icon-btn delete" onClick={() => handleDelete(f.id)} title="Delete">🗑️</button>
+                                                    <button className="icon-btn edit" onClick={e => { e.stopPropagation(); handleEdit(f); }} title="Edit">✏️</button>
+                                                    <button className="icon-btn delete" onClick={e => { e.stopPropagation(); handleDelete(f.id); }} title="Delete">🗑️</button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -3785,19 +3784,80 @@ class DataManager {
 
                         {totalPages > 1 && (
                             <div className="pagination">
-                                <button className="page-btn" onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} disabled={currentPage === 1}>← Prev</button>
+                                <button className="page-btn" onClick={() => setCurrentPage(Math.max(1, currentPage-1))} disabled={currentPage===1}>← Prev</button>
                                 <span>Page {currentPage} of {totalPages}</span>
-                                <button className="page-btn" onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage === totalPages}>Next →</button>
+                                <button className="page-btn" onClick={() => setCurrentPage(Math.min(totalPages, currentPage+1))} disabled={currentPage===totalPages}>Next →</button>
                             </div>
                         )}
                     </div>
 
+                    {/* ── Detail Panel (double-click) ── */}
+                    {detailForklift && (
+                        <div className="modal-overlay" onClick={() => setDetailForklift(null)}>
+                            <div className="modal" style={{maxWidth:'580px'}} onClick={e => e.stopPropagation()}>
+                                <div className="modal-header" style={{background:'linear-gradient(135deg,#1a252f,#2c3e50)'}}>
+                                    <div>
+                                        <h2 style={{color:'white',margin:0}}>🚜 {detailForklift.unitNo}</h2>
+                                        <div style={{color:'rgba(255,255,255,0.65)',fontSize:'13px',marginTop:'3px'}}>{detailForklift.type} — Forklift Details</div>
+                                    </div>
+                                    <button className="modal-close" style={{color:'white'}} onClick={() => setDetailForklift(null)}>✕</button>
+                                </div>
+                                <div className="modal-body" style={{padding:'24px'}}>
+                                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'20px'}}>
+                                        <div>
+                                            <span style={labelStyle}>Unit No</span>
+                                            <div style={valStyle}>{detailForklift.unitNo || '—'}</div>
+                                        </div>
+                                        <div>
+                                            <span style={labelStyle}>Status</span>
+                                            <div><span className={`status-badge status-${(detailForklift.status||'active').toLowerCase()}`}>{detailForklift.status||'Active'}</span></div>
+                                        </div>
+                                        <div>
+                                            <span style={labelStyle}>Type</span>
+                                            <div style={valStyle}>{detailForklift.type || '—'}</div>
+                                        </div>
+                                        <div>
+                                            <span style={labelStyle}>Specification</span>
+                                            <div style={valStyle}>{detailForklift.specification || '—'}</div>
+                                        </div>
+                                        <div>
+                                            <span style={labelStyle}>Manufacturer</span>
+                                            <div style={valStyle}>{detailForklift.manufacturer || '—'}</div>
+                                        </div>
+                                        <div>
+                                            <span style={labelStyle}>Model</span>
+                                            <div style={valStyle}>{detailForklift.model || '—'}</div>
+                                        </div>
+                                        <div style={{gridColumn:'1/-1'}}>
+                                            <span style={labelStyle}>Serial Number (S/N)</span>
+                                            <div style={{...valStyle,fontFamily:'inherit',letterSpacing:'0.5px',background:'#f8f9fa',padding:'8px 12px',borderRadius:'6px',border:'1px solid #e9ecef'}}>{detailForklift.serialNo || '—'}</div>
+                                        </div>
+                                        <div>
+                                            <span style={labelStyle}>Site</span>
+                                            <div style={valStyle}>{detailForklift.site || '—'}</div>
+                                        </div>
+                                        <div>
+                                            <span style={labelStyle}>Group</span>
+                                            <div style={valStyle}>{detailForklift.group || '—'}</div>
+                                        </div>
+                                        {detailForklift.notes && (
+                                            <div style={{gridColumn:'1/-1'}}>
+                                                <span style={labelStyle}>Notes</span>
+                                                <div style={{...valStyle,whiteSpace:'pre-wrap'}}>{detailForklift.notes}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="modal-footer">
+                                    <button className="btn btn-secondary" onClick={() => setDetailForklift(null)}>Close</button>
+                                    <button className="btn btn-primary" onClick={() => { setDetailForklift(null); handleEdit(detailForklift); }}>✏️ Edit</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {showModal && (
-                        <ForkliftModal
-                            forklift={editingForklift}
-                            onSave={handleSave}
-                            onClose={() => setShowModal(false)}
-                        />
+                        <ForkliftModal forklift={editingForklift} onSave={handleSave} onClose={() => setShowModal(false)} />
                     )}
                 </div>
             );
@@ -3805,112 +3865,80 @@ class DataManager {
 
         // Forklift Modal
         function ForkliftModal({ forklift, onSave, onClose }) {
-            const [formData, setFormData] = useState(forklift || {
-                unitNo: '',
-                group: 'SDSAU',
-                site: 'Bankstown',
-                type: '',
-                specification: '',
-                serialNo: '',
-                status: 'Active'
+            const [formData, setFormData] = React.useState(forklift || {
+                unitNo:'', group:'SDSAU', site:'Bankstown', type:'', specification:'',
+                serialNo:'', model:'', manufacturer:'', status:'Active', notes:''
             });
-
-            const handleSubmit = (e) => {
-                e.preventDefault();
-                onSave(formData);
-            };
+            const handleSubmit = (e) => { e.preventDefault(); onSave(formData); };
+            const fd = (k,v) => setFormData({...formData, [k]:v});
 
             return (
                 <div className="modal-overlay" onClick={onClose}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal" style={{maxWidth:'560px'}} onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
                             <h2>{forklift ? 'Edit Forklift' : 'Add New Forklift'}</h2>
                             <button className="modal-close" onClick={onClose}>✕</button>
                         </div>
-                        
                         <form onSubmit={handleSubmit}>
                             <div className="modal-body">
                                 <div className="form-row">
                                     <div className="form-field">
                                         <label>Unit Number *</label>
-                                        <input 
-                                            type="text" 
-                                            value={formData.unitNo} 
-                                            onChange={(e) => setFormData({...formData, unitNo: e.target.value})} 
-                                            required 
-                                            placeholder="e.g., SP3021"
-                                        />
-                                    </div>
-                                    <div className="form-field">
-                                        <label>Group *</label>
-                                        <input 
-                                            type="text" 
-                                            value={formData.group} 
-                                            onChange={(e) => setFormData({...formData, group: e.target.value})} 
-                                            required 
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="form-row">
-                                    <div className="form-field">
-                                        <label>Site *</label>
-                                        <input 
-                                            type="text" 
-                                            value={formData.site} 
-                                            onChange={(e) => setFormData({...formData, site: e.target.value})} 
-                                            required 
-                                        />
+                                        <input type="text" value={formData.unitNo} onChange={e=>fd('unitNo',e.target.value)} required placeholder="e.g., SP3021" />
                                     </div>
                                     <div className="form-field">
                                         <label>Type *</label>
-                                        <select 
-                                            value={formData.type} 
-                                            onChange={(e) => setFormData({...formData, type: e.target.value})} 
-                                            required
-                                        >
+                                        <select value={formData.type} onChange={e=>fd('type',e.target.value)} required>
                                             <option value="">Select Type</option>
                                             <option value="Counterbalanace">Counterbalance</option>
                                             <option value="High Reach">High Reach</option>
                                             <option value="Clamp">Clamp</option>
                                             <option value="Slip Sheet">Slip Sheet</option>
+                                            <option value="Scissor Lift">Scissor Lift</option>
                                             <option value="Stock Picker">Stock Picker</option>
                                             <option value="Pallet Jack">Pallet Jack</option>
                                         </select>
                                     </div>
                                 </div>
-
                                 <div className="form-row">
                                     <div className="form-field">
+                                        <label>Manufacturer</label>
+                                        <input type="text" value={formData.manufacturer||''} onChange={e=>fd('manufacturer',e.target.value)} placeholder="e.g., Hyundai, Toyota" />
+                                    </div>
+                                    <div className="form-field">
+                                        <label>Model</label>
+                                        <input type="text" value={formData.model||''} onChange={e=>fd('model',e.target.value)} placeholder="e.g., 20B-9" />
+                                    </div>
+                                </div>
+                                <div className="form-row">
+                                    <div className="form-field">
+                                        <label>Serial Number (S/N)</label>
+                                        <input type="text" value={formData.serialNo||''} onChange={e=>fd('serialNo',e.target.value)} placeholder="e.g., HHKHHE06VF0002322" />
+                                    </div>
+                                    <div className="form-field">
                                         <label>Specification</label>
-                                        <select 
-                                            value={formData.specification} 
-                                            onChange={(e) => setFormData({...formData, specification: e.target.value})}
-                                        >
+                                        <select value={formData.specification} onChange={e=>fd('specification',e.target.value)}>
                                             <option value="">Select Specification</option>
                                             <option value="Standard">Standard</option>
                                             <option value="Long">Long</option>
                                             <option value="Wide">Wide</option>
                                         </select>
                                     </div>
+                                </div>
+                                <div className="form-row">
                                     <div className="form-field">
-                                        <label>Serial Number (S/N)</label>
-                                        <input 
-                                            type="text" 
-                                            value={formData.serialNo || ''}
-                                            onChange={(e) => setFormData({...formData, serialNo: e.target.value})}
-                                            placeholder="e.g., SN-2024-00123"
-                                        />
+                                        <label>Site</label>
+                                        <input type="text" value={formData.site||''} onChange={e=>fd('site',e.target.value)} />
+                                    </div>
+                                    <div className="form-field">
+                                        <label>Group</label>
+                                        <input type="text" value={formData.group||''} onChange={e=>fd('group',e.target.value)} />
                                     </div>
                                 </div>
-
                                 <div className="form-row">
                                     <div className="form-field">
                                         <label>Status</label>
-                                        <select 
-                                            value={formData.status} 
-                                            onChange={(e) => setFormData({...formData, status: e.target.value})}
-                                        >
+                                        <select value={formData.status} onChange={e=>fd('status',e.target.value)}>
                                             <option value="Active">Active</option>
                                             <option value="Inactive">Inactive</option>
                                             <option value="Maintenance">Maintenance</option>
@@ -3919,8 +3947,13 @@ class DataManager {
                                     </div>
                                     <div className="form-field" />
                                 </div>
+                                <div className="form-row">
+                                    <div className="form-field" style={{flex:'1 1 100%'}}>
+                                        <label>Notes</label>
+                                        <textarea value={formData.notes||''} onChange={e=>fd('notes',e.target.value)} rows={2} style={{width:'100%',padding:'8px',border:'1px solid #ddd',borderRadius:'6px',resize:'vertical',fontFamily:'inherit'}} />
+                                    </div>
+                                </div>
                             </div>
-
                             <div className="modal-footer">
                                 <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
                                 <button type="submit" className="btn btn-success">{forklift ? 'Update' : 'Add'}</button>
