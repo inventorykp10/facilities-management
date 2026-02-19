@@ -807,24 +807,25 @@ class DataManager {
 
             seedEquipment(existing) {
                 const EQUIPMENT_SEED = [
-                    // ── Scissor Lift ──────────────────────────────────────────
+                    // ── Scissor Lift (Leased — Pallet Wrapper vendor services) ─
                     {
                         id: 1800000000001, name: 'Scissor Lift #1', category: 'Scissor Lift',
                         manufacturer: '', modelNo: '', serialNo: '', location: 'Bankstown',
-                        commissionDate: '', maintenanceSchedule: 'Quarterly',
-                        lastMaintenance: '', nextMaintenance: '', raLink: '', sopLink: '',
-                        status: 'Active', notes: ''
+                        commissionDate: '', isLeased: true, leasedBy: '', leasedByContact: '',
+                        maintenanceSchedule: '', lastMaintenance: '', nextMaintenance: '',
+                        raLink: '', sopLink: '', status: 'Active', notes: 'Leased — serviced by vendor on vendor schedule. Log service visits and breakdown repairs only.'
                     },
-                    // ── Dock Levellers (1–26) ─────────────────────────────────
+                    // ── Dock Levellers (1–26) — included in building lease ────
                     ...Array.from({length: 26}, (_, i) => ({
                         id: 1800000001000 + i + 1,
                         name: `Dock Leveller #${String(i + 1).padStart(2, '0')}`,
                         category: 'Dock Leveller',
                         manufacturer: '', modelNo: '', serialNo: '',
                         location: `Bankstown — Dock ${String(i + 1).padStart(2, '0')}`,
-                        commissionDate: '', maintenanceSchedule: 'Annually',
-                        lastMaintenance: '', nextMaintenance: '', raLink: '', sopLink: '',
-                        status: 'Active', notes: ''
+                        commissionDate: '', isLeased: true, leasedBy: '', leasedByContact: '',
+                        maintenanceSchedule: '', lastMaintenance: '', nextMaintenance: '',
+                        raLink: '', sopLink: '', status: 'Active',
+                        notes: 'Included in building lease — serviced by lessor on lessor schedule. Log service visits and breakdown repairs only.'
                     }))
                 ];
                 // Merge: add seed items that don't already exist (by id)
@@ -1415,11 +1416,11 @@ class DataManager {
 
             // Equipment maintenance due alerts
             const eqOverdue = dataManager.data.equipment.filter(e => {
-                if (!e.nextMaintenance || e.status === 'Inactive') return false;
+                if (e.isLeased || !e.nextMaintenance || e.status === 'Inactive') return false;
                 return new Date(e.nextMaintenance) < today;
             });
             const eqDueSoon = dataManager.data.equipment.filter(e => {
-                if (!e.nextMaintenance || e.status === 'Inactive') return false;
+                if (e.isLeased || !e.nextMaintenance || e.status === 'Inactive') return false;
                 const d = new Date(e.nextMaintenance);
                 const diff = Math.floor((d - today) / MS);
                 return diff >= 0 && diff <= 30;
@@ -1567,7 +1568,7 @@ class DataManager {
                         const now = new Date(); now.setHours(0,0,0,0);
                         const endOfMonth = new Date(now.getFullYear(), now.getMonth()+1, 0);
                         const thisMonth = dataManager.data.equipment.filter(e => {
-                            if (!e.nextMaintenance || e.status === 'Inactive') return false;
+                            if (e.isLeased || !e.nextMaintenance || e.status === 'Inactive') return false;
                             const d = new Date(e.nextMaintenance);
                             return d >= now && d <= endOfMonth;
                         });
@@ -5687,7 +5688,7 @@ return (
             const MS = 86400000;
 
             const getDueStatus = (eq) => {
-                if (!eq.nextMaintenance || eq.status === 'Inactive') return null;
+                if (eq.isLeased || !eq.nextMaintenance || eq.status === 'Inactive') return null;
                 const d = new Date(eq.nextMaintenance); d.setHours(0,0,0,0);
                 const diff = Math.floor((d - today) / MS);
                 if (diff < 0)   return { label: `Overdue ${Math.abs(diff)}d`, color:'#c62828', bg:'#ffebee' };
@@ -5718,11 +5719,12 @@ return (
             const exportExcel = () => {
                 if (!filtered.length) { alert('No data to export.'); return; }
                 const rows = filtered.map(e => ({
-                    Name: e.name||'-', Category: e.category||'-', Manufacturer: e.manufacturer||'-',
-                    'Serial No': e.serialNo||'-', 'Model No': e.modelNo||'-', Location: e.location||'-',
-                    'Date of Commission': e.commissionDate||'-', 'Maintenance Schedule': e.maintenanceSchedule||'-',
-                    'Last Maintenance': e.lastMaintenance||'-', 'Next Maintenance': e.nextMaintenance||'-',
-                    'Vendor': e.vendorName||'-', 'Vendor Contact': e.vendorContact||'-',
+                    Name: e.name||'-', Category: e.category||'-', Ownership: e.isLeased?'Leased':'Owned',
+                    Manufacturer: e.manufacturer||'-', 'Serial No': e.serialNo||'-', 'Model No': e.modelNo||'-',
+                    Location: e.location||'-', 'Date of Commission': e.commissionDate||'-',
+                    'Leased By': e.leasedBy||'-', 'Lessor Contact': e.leasedByContact||'-',
+                    'Maintenance Schedule': e.isLeased?'N/A (Leased)':e.maintenanceSchedule||'-',
+                    'Last Service': e.lastMaintenance||'-', 'Next Maintenance': e.isLeased?'N/A (Vendor Managed)':e.nextMaintenance||'-',
                     'RA Link': e.raLink||'-', 'SOP Link': e.sopLink||'-', Status: e.status||'-', Notes: e.notes||'-'
                 }));
                 const ws = XLSX.utils.json_to_sheet(rows);
@@ -5731,8 +5733,8 @@ return (
                 XLSX.writeFile(wb, `Equipment_Registry_${new Date().toISOString().slice(0,10)}.xlsx`);
             };
 
-            const overdue = equipment.filter(e => { if(!e.nextMaintenance||e.status==='Inactive')return false; return new Date(e.nextMaintenance)<today; });
-            const dueSoon = equipment.filter(e => { if(!e.nextMaintenance||e.status==='Inactive')return false; const diff=Math.floor((new Date(e.nextMaintenance)-today)/MS); return diff>=0&&diff<=30; });
+            const overdue = equipment.filter(e => { if(e.isLeased||!e.nextMaintenance||e.status==='Inactive')return false; return new Date(e.nextMaintenance)<today; });
+            const dueSoon = equipment.filter(e => { if(e.isLeased||!e.nextMaintenance||e.status==='Inactive')return false; const diff=Math.floor((new Date(e.nextMaintenance)-today)/MS); return diff>=0&&diff<=30; });
 
             return (
                 <div>
@@ -5750,11 +5752,11 @@ return (
                     {/* Summary pills */}
                     <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:'12px',marginBottom:'16px'}}>
                         {[
-                            {label:'Total',       num:equipment.length,                           bg:'#f0f7ff',lc:'#1565c0',icon:'🏭'},
+                            {label:'Total',       num:equipment.length,                                bg:'#f0f7ff',lc:'#1565c0',icon:'🏭'},
                             {label:'Active',      num:equipment.filter(e=>e.status==='Active').length, bg:'#f0faf0',lc:'#2e7d32',icon:'✅'},
-                            {label:'Overdue',     num:overdue.length,                             bg:'#ffebee',lc:'#c62828',icon:'🚨'},
-                            {label:'Due ≤30 days',num:dueSoon.length,                             bg:'#fff3e0',lc:'#e65100',icon:'⚠️'},
-                            {label:'Categories',  num:[...new Set(equipment.map(e=>e.category).filter(Boolean))].length, bg:'#f3e5f5',lc:'#7b1fa2',icon:'📦'},
+                            {label:'Leased',      num:equipment.filter(e=>e.isLeased).length,          bg:'#f3e5f5',lc:'#7b1fa2',icon:'🔑'},
+                            {label:'Overdue',     num:overdue.length,                                  bg:'#ffebee',lc:'#c62828',icon:'🚨'},
+                            {label:'Due ≤30 days',num:dueSoon.length,                                  bg:'#fff3e0',lc:'#e65100',icon:'⚠️'},
                         ].map(s=>(
                             <div key={s.label} style={{background:s.bg,borderRadius:'12px',border:'1.5px solid #e9ecef',padding:'14px 16px'}}>
                                 <div style={{fontSize:'10px',fontWeight:700,textTransform:'uppercase',letterSpacing:'0.6px',color:s.lc,marginBottom:'4px'}}>{s.icon} {s.label}</div>
@@ -5786,13 +5788,13 @@ return (
                                 <thead>
                                     <tr>
                                         <th>No.</th><th>Name</th><th>Category</th><th>Manufacturer</th><th>Serial No</th>
-                                        <th>Commission Date</th><th>Maintenance Schedule</th><th>Next Maintenance</th>
-                                        <th>Vendor</th><th>RA</th><th>SOP</th><th>Status</th><th>Actions</th>
+                                        <th>Commission Date</th><th>Ownership</th><th>Maint. Schedule / Last Service</th>
+                                        <th>Vendor / Lessor</th><th>RA</th><th>SOP</th><th>Status</th><th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filtered.length===0?(
-                                        <tr><td colSpan="12" style={{textAlign:'center',padding:'40px',color:'#95a5a6',fontStyle:'italic'}}>No equipment found. Click "+ Add Equipment" to register.</td></tr>
+                                        <tr><td colSpan="13" style={{textAlign:'center',padding:'40px',color:'#95a5a6',fontStyle:'italic'}}>No equipment found. Click "+ Add Equipment" to register.</td></tr>
                                     ):filtered.map((eq,i)=>{
                                         const due = getDueStatus(eq);
                                         return(
@@ -5803,14 +5805,24 @@ return (
                                                 <td>{eq.manufacturer||'-'}</td>
                                                 <td>{eq.serialNo||'-'}</td>
                                                 <td>{eq.commissionDate||'-'}</td>
-                                                <td>{eq.maintenanceSchedule||'-'}</td>
-                                                <td>{eq.nextMaintenance ? (
-                                                    due ? (
-                                                        <span style={{fontSize:'11px',fontWeight:700,color:due.color,background:due.bg,padding:'3px 8px',borderRadius:'10px',display:'inline-block'}}>
-                                                            {eq.nextMaintenance}<br/><span style={{fontSize:'10px'}}>{due.label}</span>
-                                                        </span>
-                                                    ) : eq.nextMaintenance
-                                                ) : '-'}</td>
+                                                <td>
+                                                    {eq.isLeased
+                                                        ? <span style={{fontSize:'11px',fontWeight:700,padding:'3px 10px',borderRadius:'10px',background:'#f3e5f5',color:'#7b1fa2'}}>🔑 Leased</span>
+                                                        : (eq.maintenanceSchedule||'-')
+                                                    }
+                                                </td>
+                                                <td>
+                                                    {eq.isLeased
+                                                        ? (eq.lastMaintenance
+                                                            ? <span style={{fontSize:'12px',color:'#5a6c7d'}}>Last: {eq.lastMaintenance}</span>
+                                                            : <span style={{color:'#bdc3c7',fontSize:'12px'}}>No service recorded</span>)
+                                                        : eq.nextMaintenance
+                                                            ? due
+                                                                ? <span style={{fontSize:'11px',fontWeight:700,color:due.color,background:due.bg,padding:'3px 8px',borderRadius:'10px',display:'inline-block'}}>{eq.nextMaintenance}<br/><span style={{fontSize:'10px'}}>{due.label}</span></span>
+                                                                : eq.nextMaintenance
+                                                            : '-'
+                                                    }
+                                                </td>
                                                 <td style={{fontSize:'12px'}}>{eq.vendorName||'-'}{eq.vendorContact?<><br/><span style={{color:'#7f8c8d'}}>{eq.vendorContact}</span></>:''}</td>
                                                 <td>
                                                     {eq.raLink?(<a href={eq.raLink} target="_blank" rel="noreferrer" style={{color:'#3498db',fontWeight:600,fontSize:'12px'}}>📄 RA</a>):(<span style={{color:'#bdc3c7',fontSize:'12px'}}>—</span>)}
@@ -5847,9 +5859,10 @@ return (
         function EquipmentModal({ equipment, onSave, onClose }) {
             const CATEGORIES = ['Forklift','Scissor Lift','Dock Leveller','Pallet Wrapper','HVAC','Fire Equipment','Electrical','Cleaning Equipment','Other'];
             const SCHEDULES = ['Monthly','Quarterly','6 Monthly','Annually','2 Yearly','As Required'];
-            const blank = { name:'',category:'',manufacturer:'',modelNo:'',serialNo:'',location:'',commissionDate:'',maintenanceSchedule:'',lastMaintenance:'',nextMaintenance:'',raLink:'',sopLink:'',status:'Active',notes:'' };
+            const LEASED_CATEGORIES = ['Scissor Lift','Dock Leveller','Pallet Wrapper'];
+            const blank = { name:'',category:'',manufacturer:'',modelNo:'',serialNo:'',location:'',commissionDate:'',isLeased:false,leasedBy:'',leasedByContact:'',maintenanceSchedule:'',lastMaintenance:'',nextMaintenance:'',raLink:'',sopLink:'',status:'Active',notes:'' };
             const [form, setForm] = React.useState(equipment || blank);
-            const set = (k,v) => setForm(f=>({...f,[k]:v}));
+            const set = (k,v) => setForm(f=>{ const nf={...f,[k]:v}; if(k==='category') nf.isLeased=LEASED_CATEGORIES.includes(v); return nf; });
 
             // Auto-calculate next maintenance from last + schedule
             React.useEffect(() => {
@@ -5879,8 +5892,10 @@ return (
                             <button className="modal-close" onClick={onClose}>✕</button>
                         </div>
                         <div className="modal-body" style={{maxHeight:'75vh',overflowY:'auto'}}>
-                            <div style={{background:'#f0f7ff',borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color:'#1565c0',fontWeight:600}}>
-                                📌 Phase 1 — Equipment Registry: Manufacturer · Serial No · Commission Date · Maintenance Schedule · RA · SOP
+                            <div style={{background: form.isLeased ? '#f3e5f5' : '#f0f7ff',borderRadius:'8px',padding:'10px 14px',marginBottom:'16px',fontSize:'12px',color: form.isLeased ? '#7b1fa2' : '#1565c0',fontWeight:600}}>
+                                {form.isLeased
+                                    ? '🔑 Leased Equipment — Maintenance is managed by the lessor/vendor. Record service visits and breakdown repairs in Equipment Maintenance.'
+                                    : '📌 Phase 1 — Equipment Registry: Manufacturer · Serial No · Commission Date · Maintenance Schedule · RA · SOP'}
                             </div>
 
                             <div style={{...r2}}>
@@ -5920,19 +5935,32 @@ return (
                                 </div>
                             </div>
 
-                            <div style={{borderTop:'1px solid #e9ecef',margin:'10px 0 14px',paddingTop:'14px'}}>
-                                <div style={{fontSize:'11px',fontWeight:700,textTransform:'uppercase',color:'#7f8c8d',marginBottom:'12px',letterSpacing:'0.6px'}}>🔩 Maintenance Schedule</div>
-                                <div style={r3}>
-                                    <div><label style={ls}>Schedule Interval</label>
-                                        <select style={fs} value={form.maintenanceSchedule} onChange={e=>set('maintenanceSchedule',e.target.value)}>
-                                            <option value="">Select…</option>
-                                            {SCHEDULES.map(s=><option key={s} value={s}>{s}</option>)}
-                                        </select>
+                            {form.isLeased ? (
+                                <div style={{borderTop:'1px solid #e9ecef',margin:'10px 0 14px',paddingTop:'14px'}}>
+                                    <div style={{fontSize:'11px',fontWeight:700,textTransform:'uppercase',color:'#7b1fa2',marginBottom:'12px',letterSpacing:'0.6px'}}>🔑 Lease / Service Provider</div>
+                                    <div style={r2}>
+                                        <div><label style={ls}>Leasing Company / Lessor</label><input style={fs} value={form.leasedBy||''} onChange={e=>set('leasedBy',e.target.value)} placeholder="e.g. Crown Equipment, Building Lessor" /></div>
+                                        <div><label style={ls}>Contact (Phone / Email)</label><input style={fs} value={form.leasedByContact||''} onChange={e=>set('leasedByContact',e.target.value)} placeholder="Contact for breakdown requests" /></div>
                                     </div>
-                                    <div><label style={ls}>Last Maintenance</label><input type="date" style={fs} value={form.lastMaintenance} onChange={e=>set('lastMaintenance',e.target.value)} /></div>
-                                    <div><label style={ls}>Next Maintenance <span style={{color:'#3498db',fontSize:'10px'}}>(auto)</span></label><input type="date" style={fs} value={form.nextMaintenance} onChange={e=>set('nextMaintenance',e.target.value)} /></div>
+                                    <div style={{background:'#fce4ec',borderRadius:'8px',padding:'10px 14px',fontSize:'12px',color:'#880e4f'}}>
+                                        ℹ️ Service scheduling is managed by the lessor/vendor. Use <strong>Equipment Maintenance</strong> to log service visits and breakdown repairs.
+                                    </div>
                                 </div>
-                            </div>
+                            ) : (
+                                <div style={{borderTop:'1px solid #e9ecef',margin:'10px 0 14px',paddingTop:'14px'}}>
+                                    <div style={{fontSize:'11px',fontWeight:700,textTransform:'uppercase',color:'#7f8c8d',marginBottom:'12px',letterSpacing:'0.6px'}}>🔩 Maintenance Schedule</div>
+                                    <div style={r3}>
+                                        <div><label style={ls}>Schedule Interval</label>
+                                            <select style={fs} value={form.maintenanceSchedule} onChange={e=>set('maintenanceSchedule',e.target.value)}>
+                                                <option value="">Select…</option>
+                                                {SCHEDULES.map(s=><option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                        </div>
+                                        <div><label style={ls}>Last Maintenance</label><input type="date" style={fs} value={form.lastMaintenance} onChange={e=>set('lastMaintenance',e.target.value)} /></div>
+                                        <div><label style={ls}>Next Maintenance <span style={{color:'#3498db',fontSize:'10px'}}>(auto)</span></label><input type="date" style={fs} value={form.nextMaintenance} onChange={e=>set('nextMaintenance',e.target.value)} /></div>
+                                    </div>
+                                </div>
+                            )}
 
                             <div style={{borderTop:'1px solid #e9ecef',margin:'10px 0 14px',paddingTop:'14px'}}>
                                 <div style={{fontSize:'11px',fontWeight:700,textTransform:'uppercase',color:'#7f8c8d',marginBottom:'12px',letterSpacing:'0.6px'}}>📄 Documents (URL Links)</div>
@@ -5989,9 +6017,12 @@ return (
                     const eq = dataManager.data.equipment.find(e=>e.id===parseInt(rec.equipmentId));
                     if (eq) {
                         eq.lastMaintenance = rec.completionDate;
-                        const map={'Monthly':1,'Quarterly':3,'6 Monthly':6,'Annually':12,'2 Yearly':24};
-                        const m = map[eq.maintenanceSchedule];
-                        if (m) { const d=new Date(rec.completionDate); d.setMonth(d.getMonth()+m); eq.nextMaintenance=d.toISOString().slice(0,10); }
+                        // Leased equipment: vendor manages schedule — do NOT update nextMaintenance
+                        if (!eq.isLeased) {
+                            const map={'Monthly':1,'Quarterly':3,'6 Monthly':6,'Annually':12,'2 Yearly':24};
+                            const m = map[eq.maintenanceSchedule];
+                            if (m) { const d=new Date(rec.completionDate); d.setMonth(d.getMonth()+m); eq.nextMaintenance=d.toISOString().slice(0,10); }
+                        }
                         dataManager.saveData('equipment');
                     }
                 }
@@ -6025,7 +6056,7 @@ return (
                     <div className="content-header">
                         <div className="content-header-left">
                             <h1>Equipment Maintenance <span className="v3-badge">V1.2.3</span></h1>
-                            <p>Scheduled and breakdown maintenance records for all registered equipment</p>
+                            <p>Service records for all equipment — vendor service visits and breakdown repairs for leased items, full maintenance schedule for owned equipment</p>
                         </div>
                         <div className="content-header-right">
                             <button className="btn btn-success" onClick={()=>{setEditing(null);setShowModal(true);}}>+ Add Record</button>
@@ -6036,8 +6067,8 @@ return (
                     <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'12px',marginBottom:'16px'}}>
                         {[
                             {label:'Total Records', num:records.length, bg:'#f0f7ff',lc:'#1565c0',icon:'📋'},
-                            {label:'Scheduled',num:records.filter(r=>r.type==='Scheduled').length,bg:'#f0faf0',lc:'#2e7d32',icon:'📅'},
-                            {label:'Breakdown',num:records.filter(r=>r.type==='Breakdown').length,bg:'#ffebee',lc:'#c62828',icon:'🔴'},
+                            {label:'Vendor Service',num:records.filter(r=>r.type==='Vendor Service Visit'||r.type==='Scheduled').length,bg:'#f3e5f5',lc:'#7b1fa2',icon:'🔑'},
+                            {label:'Breakdown',num:records.filter(r=>r.type==='Breakdown'||r.type==='Breakdown Repair').length,bg:'#ffebee',lc:'#c62828',icon:'🔴'},
                             {label:'In Progress',num:records.filter(r=>r.status==='In Progress').length,bg:'#fff3e0',lc:'#e65100',icon:'🔩'},
                         ].map(s=>(
                             <div key={s.label} style={{background:s.bg,borderRadius:'12px',border:'1.5px solid #e9ecef',padding:'14px 16px'}}>
@@ -6056,6 +6087,8 @@ return (
                             </select>
                             <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{padding:'7px 10px',fontSize:'13px',border:'1px solid #dfe6e9',borderRadius:'6px'}}>
                                 <option value="ALL">All Types</option>
+                                <option value="Vendor Service Visit">🔑 Vendor Service Visit</option>
+                                <option value="Breakdown Repair">🔴 Breakdown Repair</option>
                                 <option value="Scheduled">Scheduled</option>
                                 <option value="Breakdown">Breakdown</option>
                                 <option value="Inspection">Inspection</option>
@@ -6112,7 +6145,7 @@ return (
         }
 
         function EqMaintenanceModal({ record, equipment, onSave, onClose }) {
-            const blank = { equipmentId:'', equipmentName:'', type:'Scheduled', dateReported:new Date().toISOString().slice(0,10), completionDate:'', technician:'', description:'', cost:'', status:'Pending', notes:'' };
+            const blank = { equipmentId:'', equipmentName:'', type:'Vendor Service Visit', dateReported:new Date().toISOString().slice(0,10), completionDate:'', technician:'', description:'', cost:'', status:'Pending', notes:'' };
             const [form, setForm] = React.useState(record||blank);
             const set = (k,v) => setForm(f=>({...f,[k]:v}));
             const fs = {width:'100%',padding:'9px 11px',border:'1px solid #dfe6e9',borderRadius:'7px',fontSize:'13px',fontFamily:'inherit'};
@@ -6121,9 +6154,14 @@ return (
 
             const handleEqChange = (id) => {
                 const eq = equipment.find(e=>String(e.id)===id);
-                set('equipmentId', id);
-                if(eq) set('equipmentName', eq.name);
+                setForm(f=>({...f,
+                    equipmentId: id,
+                    equipmentName: eq ? eq.name : f.equipmentName,
+                    type: eq && eq.isLeased ? 'Vendor Service Visit' : f.type
+                }));
             };
+            const selectedEq = equipment.find(e=>String(e.id)===form.equipmentId);
+            const isLeasedEq = selectedEq && selectedEq.isLeased;
             const submit = () => {
                 if (!form.equipmentId&&!form.equipmentName) { alert('Please select or enter equipment.'); return; }
                 if (!form.description) { alert('Description is required.'); return; }
@@ -6141,15 +6179,25 @@ return (
                                         {equipment.map(e=><option key={e.id} value={String(e.id)}>{e.name} ({e.category||'-'})</option>)}
                                     </select>
                                 </div>
-                                <div><label style={ls}>Maintenance Type</label>
+                                <div><label style={ls}>Record Type</label>
                                     <select style={fs} value={form.type} onChange={e=>set('type',e.target.value)}>
-                                        <option value="Scheduled">Scheduled</option>
-                                        <option value="Breakdown">Breakdown</option>
-                                        <option value="Inspection">Inspection</option>
-                                        <option value="Repair">Repair</option>
+                                        {isLeasedEq ? (<>
+                                            <option value="Vendor Service Visit">🔑 Vendor Service Visit</option>
+                                            <option value="Breakdown Repair">🔴 Breakdown Repair</option>
+                                        </>) : (<>
+                                            <option value="Scheduled">Scheduled</option>
+                                            <option value="Breakdown">Breakdown</option>
+                                            <option value="Inspection">Inspection</option>
+                                            <option value="Repair">Repair</option>
+                                        </>)}
                                     </select>
                                 </div>
                             </div>
+                            {isLeasedEq && (
+                                <div style={{background:'#f3e5f5',borderRadius:'8px',padding:'10px 14px',marginBottom:'14px',fontSize:'12px',color:'#7b1fa2',fontWeight:600}}>
+                                    🔑 Leased equipment — service schedule managed by <strong>{selectedEq.leasedBy||'vendor/lessor'}</strong>{selectedEq.leasedByContact?' · '+selectedEq.leasedByContact:''}. Log vendor service visits or breakdown repairs here.
+                                </div>
+                            )}
                             <div style={r2}>
                                 <div><label style={ls}>Date Reported</label><input type="date" style={fs} value={form.dateReported} onChange={e=>set('dateReported',e.target.value)} /></div>
                                 <div><label style={ls}>Completion Date</label><input type="date" style={fs} value={form.completionDate} onChange={e=>set('completionDate',e.target.value)} /></div>
